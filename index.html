@@ -520,6 +520,7 @@ const ICON={
  msg:'M4 5h16v11H9l-5 4zM8 9h8M8 12h5', book:'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5M9 7h6',
  list:'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01', flag:'M5 21V4M5 4h12l-2 4 2 4H5',
  tpl:'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 16.5h7M16.5 13v7', student:'M12 4l10 5-10 5L2 9zM6 11v5c3 2 9 2 12 0v-5',
+ lock:'M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4M12 15v2', eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
  wa:'M4 20l1.3-3.8A8 8 0 1 1 8 19zM9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z', parent:'M8 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 21v-5a5 5 0 0 1 10 0v5M17 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM15 21v-3.5a3.5 3.5 0 0 1 7 0V21'
 };
 const ic=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[n]}"/></svg>`;
@@ -762,7 +763,7 @@ function alertsFor(st){
   if(ys.t&&ys.open<ys.t&&ys.p<.5)out.push({sev:'warn',t:`Dün görevlerin ${pct(ys.p)} kadarı yapıldı`,r:`${GUN[dIdx(y)]} günü ${ys.t} görevden ${ys.y} tanesi tam yapıldı.`,btn:'Programa git',a:'goProg',sid:st.id});
   const pd=parentDue(st);
   if(pd.due&&st.parentPhone!==undefined)out.push({sev:'info',t:pd.lastOk?'Veli araması zamanı geldi':'Veliyle henüz görüşülmedi',r:pd.lastOk?`Son veli görüşmesi ${fmtD(pd.lastOk.date)} (${pd.days} gün önce). Her ${pd.every} günde bir aranıyor.`:`Veliler her ${pd.every} günde bir aranacak şekilde ayarlı.`,btn:'Veliyi ara',a:'pcall',sid:st.id});
-  const od=overdue(st);if(od.list.length)out.push({sev:'bad',t:`Ödeme gecikti: ${TL(od.sum)}`,r:od.list.map(mLabel).join(', ')+' ayı ödenmedi.',btn:'Ödemeler',a:'goPay',sid:st.id});
+  const od=overdue(st);if(payOK()&&od.list.length)out.push({sev:'bad',t:`Ödeme gecikti: ${TL(od.sum)}`,r:od.list.map(mLabel).join(', ')+' ayı ödenmedi.',btn:'Ödemeler',a:'goPay',sid:st.id});
   const ex=examsOf(st.id);
   if(ex.length>=2){const a=ex[ex.length-1],b=[...ex].reverse().find(e=>e!==a&&e.type===a.type);if(b){const dlt=netOf(a).tot-netOf(b).tot;if(dlt<=-5)out.push({sev:'warn',t:`Son ${EXAMS[a.type].label} denemesinde ${fmtNet(-dlt)} net düşüş`,r:`${fmtDs(b.date)}: ${fmtNet(netOf(b).tot)} → ${fmtDs(a.date)}: ${fmtNet(netOf(a).tot)} net.`,btn:'Denemeler',a:'goExam',sid:st.id})}}
   const last=ex[ex.length-1];
@@ -835,16 +836,74 @@ const TABS=[['bugun','Bugün','home'],['izleme','İzleme','list'],['ogrenciler',
 function renderNav(){
   const v=ui.view==='ogrenci'?'ogrenciler':ui.view;
   $('#side').innerHTML=`<div class="brand"><div class="mark">E</div><div><b>${APP}</b><small>${COACH} · Eğitim Koçu</small></div></div>`+
-    NAV.map(([k,l,i])=>`<button class="nv ${v===k?'on':''}" data-a="nav" data-v="${k}">${ic(i)}${l}</button>`).join('')+
-    `<div class="foot"><span class="dot"></span>${backend==='cloud'?(netWarn?'Bağlantı bekleniyor':`Bulutta kayıtlı · ${students().length} öğrenci`):`Bu iPad'de kayıtlı · ${students().length} öğrenci`}</div>`;
+    NAV.map(([k,l,i])=>`<button class="nv ${v===k?'on':''}" data-a="nav" data-v="${k}">${ic(k==='odeme'&&!payOK()?'lock':i)}${l}</button>`).join('')+
+    `<div class="foot"><span class="dot"></span>${backend==='cloud'?(netWarn?'Bağlantı bekleniyor':`Bulutta kayıtlı · ${students().length} öğrenci`):`Bu iPad'de kayıtlı`}</div>`;
   $('#tabbar').innerHTML=TABS.map(([k,l,i])=>`<button class="nv ${v===k||(k==='ayar'&&(v==='rapor'||v==='kilavuz'))?'on':''}" data-a="nav" data-v="${k}">${ic(i)}${l}</button>`).join('');
 }
 let rq=false,deferred=false;
 function scheduleRender(){if(rq)return;rq=true;requestAnimationFrame(()=>{rq=false;const a=document.activeElement;if(a&&$('#view').contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){deferred=true;return}mode==='student'?renderStu():render()})}
 document.addEventListener('focusout',()=>{if(deferred){deferred=false;setTimeout(()=>scheduleRender(),0)}});
+/* ============ ŞİFRE VE GİZLİLİK ============
+   Ödemeler şifre girilene kadar her ekranda gizlidir. Program arka plana alınıp 2 dakikadan
+   uzun kalırsa veya "Kilitle"ye basılırsa yeniden kilitlenir. "Öğrenciye göster" modundan
+   çıkmak da şifre ister. Şifrenin kendisi saklanmaz, yalnızca özeti (SHA-256) saklanır. */
+let payUnlocked=false,hiddenAt=0,pinFails=0,pinWaitUntil=0;
+const hasPin=()=>!!SET().pinHash;
+const payOK=()=>payUnlocked;
+async function pinHash(p){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('esra-hocaniz:'+p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>120000&&payUnlocked){payUnlocked=false;scheduleRender()}});
+function payLocked(){
+  return `<div class="card empty">${ic('lock')}<h2>Ödemeler şifreyle korunuyor</h2><p>${hasPin()?'Ödeme bilgilerini görmek için şifrenizi girin.':'Ödeme bilgilerini korumak için önce bir şifre belirleyin.'}</p><button class="btn pri" data-a="unlockPay">${ic('lock','s')}${hasPin()?'Şifreyi gir':'Şifre belirle'}</button></div>`;
+}
+const pinInput=(id,ph)=>`<input id="${id}" type="password" inputmode="numeric" autocomplete="off" maxlength="8" class="inp" placeholder="${ph}" style="font-size:22px;letter-spacing:.3em;text-align:center">`;
+function pinModal(purpose){
+  ui.pinPurpose=purpose;
+  const set=!hasPin()||purpose==='change';
+  const title=purpose==='exit'?'Çıkmak için şifre':purpose==='change'?'Şifreyi değiştir':set?'Şifre belirleyin':'Ödemeler için şifre';
+  openModal(`<div class="dhd"><div class="row">${ic('lock')}<h2>${title}</h2></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
+   ${set?`<p class="small muted" style="margin:0">4–8 haneli bir rakam şifre seçin. Bu şifre ödemeleri açmak ve “Öğrenciye göster” modundan çıkmak için kullanılacak. Unutmayacağınız ama öğrencilerin tahmin edemeyeceği bir şifre olsun.</p>`:''}
+   ${purpose==='change'&&hasPin()?`<label class="f">Mevcut şifre${pinInput('pinOld','••••')}</label>`:''}
+   <label class="f">${set?'Yeni şifre':'Şifre'}${pinInput('pin1','••••')}</label>
+   ${set?`<label class="f">Yeni şifre (tekrar)${pinInput('pin2','••••')}</label>`:''}
+   <div class="acts">${!set?'<button class="btn ghost" data-a="pinForgot" style="margin-right:auto">Şifremi unuttum</button>':''}<button class="btn ghost" data-a="close">Vazgeç</button><button class="btn pri" data-a="pinOk">${set?'Kaydet':'Aç'}</button></div>`);
+  setTimeout(()=>{const e=$('#pinOld')||$('#pin1');if(e)e.focus()},60);
+}
+async function pinSubmit(){
+  const purpose=ui.pinPurpose;const set=!hasPin()||purpose==='change';
+  if(Date.now()<pinWaitUntil){toast(`Çok fazla yanlış deneme. ${Math.ceil((pinWaitUntil-Date.now())/1000)} saniye bekleyin.`);return}
+  const p1=val('pin1');
+  if(set){
+    if(purpose==='change'&&hasPin()&&await pinHash(val('pinOld'))!==SET().pinHash){toast('Mevcut şifre yanlış');return}
+    if(!/^\d{4,8}$/.test(p1)){toast('Şifre 4–8 haneli rakamlardan oluşmalı');return}
+    if(p1!==val('pin2')){toast('İki şifre aynı değil');return}
+    saveSettings({pinHash:await pinHash(p1)});payUnlocked=true;closeModal();toast('Şifre kaydedildi');
+    if(purpose==='exit'){ui.present=null}
+    render();return;
+  }
+  if(await pinHash(p1)!==SET().pinHash){pinFails++;if(pinFails>=5){pinWaitUntil=Date.now()+30000;pinFails=0}toast('Şifre yanlış');const e=$('#pin1');if(e){e.value='';e.focus()}return}
+  pinFails=0;closeModal();
+  if(purpose==='exit'){ui.present=null;window.scrollTo(0,0)}else payUnlocked=true;
+  render();
+}
+
+/* ---- Öğrenciye göster: yalnızca tek öğrencinin programı, menüler kapalı, çıkış şifreli ---- */
+function vPresent(){
+  const s=S.students[ui.present];if(!s){ui.present=null;return ''}
+  const wk=ui.pweek;const p=prog(s.id,wk);const tk=dkey(today());const w=weekStats(s.id,wk);const ed=examDateFor(s);const z=haftaSozu(s,p,wk);
+  const days=Array.from({length:7},(_,i)=>{const d=addD(pkey(wk),i);const day=p?p.days[i]:{tasks:[]};
+    return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[i]}</b> <small>${fmtDs(d)}</small></div></div></div><div class="tasks">${day.tasks.map(x=>`<div class="task" style="--sc:${subjColor(x.subj)}"><div class="body" style="cursor:default"><div class="sb">${esc(x.subj)}</div>${x.topic?`<div class="tp">${esc(x.topic)}</div>`:''}${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}${x.qty?`<div class="q num">${esc(x.qty)} ${esc(x.unit||'')}</div>`:''}</div><span class="st ${x.s||''}">${x.s==='y'?ic('check','s'):x.s==='k'?ic('half','s'):x.s==='n'?ic('x','s'):''}</span></div>`).join('')||'<div class="muted small" style="padding:4px">—</div>'}</div></div>`}).join('');
+  return `<div class="head"><div class="row" style="gap:14px">${avatar(s,52)}<div><h1>${esc(cleanName(s.name))}</h1><p>Haftalık çalışma programın</p></div></div><div class="row">${ed&&daysTo(ed.date)>=0?`<span class="countdown">${ed.name}'ye <b class="num">${daysTo(ed.date)}</b> gün</span>`:''}<button class="btn" data-a="presentExit">${ic('lock','s')}Çık</button></div></div>
+  <div class="card"><div class="ctitle"><div class="weeknav"><button class="ib" data-a="pwk" data-v="-1" aria-label="Önceki hafta">${ic('left')}</button><span class="wl">${wLabel(wk)}</span><button class="ib" data-a="pwk" data-v="1" aria-label="Sonraki hafta">${ic('right')}</button></div><span class="chip ${w.p>=.8?'ok':w.p>=.5?'warn':w.t?'bad':''}">${w.t?'Bugüne kadar '+pct(w.p):'Görev yok'}</span></div>
+  <div class="pgrid-wrap"><div class="pgrid">${days}</div></div></div>
+  ${p&&p.note?`<div class="alert" style="background:var(--hl-soft);border-color:transparent"><span class="sev" style="background:var(--hl)"></span><div><div class="t">Bu haftanın hedefi</div><div>${esc(p.note)}</div></div></div>`:''}
+  <div class="card" style="text-align:center">${z.intro?`<div class="small muted">${esc(z.intro)}</div>`:''}<div style="font-family:var(--f-display);font-size:20px;font-style:italic;font-weight:600;margin:6px 0">“${esc(z.text)}”</div><div class="small" style="color:var(--accent);font-weight:600">— ${esc(z.by)}</div></div>`;
+}
+
 function render(){
   if(mode==='student')return renderStu();
   if(!ready)return;
+  if(ui.present){document.body.classList.add('stu');const v=vPresent();if(ui.present){$('#view').innerHTML=v;return}}
+  document.body.classList.remove('stu');
   renderNav();
   const V={bugun:vBugun,izleme:vIzleme,ogrenciler:vOgrenciler,ogrenci:vOgrenci,program:vProgram,deneme:vDeneme,odeme:vOdeme,rapor:vRapor,ayar:vAyar,kilavuz:vKilavuz}[ui.view]||vBugun;
   const banner=netWarn?`<div class="banner">${ic('alert')}Sunucuya ulaşılamıyor; gösterilen veriler güncel olmayabilir. İnternet bağlantısını kontrol edin.</div>`:'';
@@ -887,7 +946,7 @@ function vBugun(){
     <div class="kpi"><span class="l">Bugünkü görevler</span><span class="v num">${sc.t?pct(sc.p):'–'}</span><div class="meter"><i style="width:${(sc.p||0)*100}%;background:var(--ok)"></i></div><span class="s">${sc.t} görev · ${sc.open} işaretlenmedi</span></div>
     <div class="kpi"><span class="l">Bu hafta çalışma</span><span class="v num">${fmtN(hT)}<small> saat</small></span><span class="s">${qT.toLocaleString('tr-TR')} soru · tamamlama ${wtot?pct(wy/wtot):'–'}</span></div>
     <button class="kpi" data-a="pcallList"><span class="l">Aranacak veli</span><span class="v num" style="color:${pdue.length?'var(--warn)':'inherit'}">${pdue.length}</span><span class="s">Arama aralığı dolanlar</span></button>
-    <button class="kpi" data-a="nav" data-v="odeme"><span class="l">Geciken ödeme</span><span class="v num" style="color:${late?'var(--bad)':'inherit'}">${late}<small> öğrenci</small></span><span class="s">${late?TL(lateSum)+' bekleniyor':'Gecikme yok'}</span></button>
+    ${payOK()?`<button class="kpi" data-a="nav" data-v="odeme"><span class="l">Geciken ödeme</span><span class="v num" style="color:${late?'var(--bad)':'inherit'}">${late}<small> öğrenci</small></span><span class="s">${late?TL(lateSum)+' bekleniyor':'Gecikme yok'}</span></button>`:`<button class="kpi" data-a="unlockPay"><span class="l">Ödemeler</span><span class="v">${ic('lock')}</span><span class="s">Kilitli · görmek için dokunun</span></button>`}
   </div>`;
   const rows=ss.map(s=>{
     const c=dayCall(s.id,t);const ts=score(dayTasks(s.id,t));const qh=dayQH(dayOf(s.id,t));
@@ -915,7 +974,7 @@ function vIzleme(){
    <div class="kpi"><span class="l">Aramalar</span><span class="v num">${T.r}<small> / ${T.c}</small></span><span class="s">Konuşulan / aranan gün</span></div></div>
   <div class="card"><div class="ctitle"><h3>Haftalık izleme tablosu</h3><div class="legend"><span><i style="background:var(--ok)"></i>Konuşuldu</span><span><i style="background:var(--bad)"></i>Açmadı/kapalı</span><span><i style="background:var(--warn)"></i>Meşgul</span><span><i style="background:var(--accent)"></i>Mesaj atıldı</span><span><i style="background:var(--line)"></i>Aranmadı</span></div></div>
   <div class="tw"><table class="t"><thead><tr><th>Öğrenci</th>${GN.map((g,i)=>`<th class="c">${g}<br><span style="font-weight:500;text-transform:none;letter-spacing:0">${fmtDs(addD(a,i))}</span></th>`).join('')}<th class="n">Görev</th><th class="n">Saat</th><th class="n">Soru</th><th class="n">Son net</th><th>Veli</th><th>Ödeme</th></tr></thead>
-  <tbody>${rows.map(r=>`<tr><td><button class="btn ghost sm" data-a="openS" data-id="${r.s.id}" style="padding:0">${avatar(r.s,26)}<span style="white-space:nowrap;font-weight:600">${esc(r.s.name)}</span></button></td>${GN.map((g,i)=>`<td class="c" style="padding:5px 3px">${cell(r.s,i)}</td>`).join('')}<td class="n"><span class="chip ${r.w.p==null?'':r.w.p>=.8?'ok':r.w.p>=.5?'warn':'bad'}">${pct(r.w.p)}</span></td><td class="n">${r.w.hd?fmtN(r.w.h):'–'}</td><td class="n">${r.w.qd?r.w.q.toLocaleString('tr-TR'):'–'}</td><td class="n">${r.last?`<b>${fmtNet(netOf(r.last).tot)}</b> <span class="muted small">${EXAMS[r.last.type].label}</span>`:'–'}</td><td>${r.pd.due?`<button class="chip warn" style="border:0" data-a="pcall" data-id="${r.s.id}">Aranmalı</button>`:`<span class="chip ok">${r.pd.left} gün sonra</span>`}</td><td>${r.od.list.length?`<span class="chip bad">${TL(r.od.sum)}</span>`:'<span class="chip ok">Güncel</span>'}</td></tr>`).join('')}</tbody></table></div>
+  <tbody>${rows.map(r=>`<tr><td><button class="btn ghost sm" data-a="openS" data-id="${r.s.id}" style="padding:0">${avatar(r.s,26)}<span style="white-space:nowrap;font-weight:600">${esc(r.s.name)}</span></button></td>${GN.map((g,i)=>`<td class="c" style="padding:5px 3px">${cell(r.s,i)}</td>`).join('')}<td class="n"><span class="chip ${r.w.p==null?'':r.w.p>=.8?'ok':r.w.p>=.5?'warn':'bad'}">${pct(r.w.p)}</span></td><td class="n">${r.w.hd?fmtN(r.w.h):'–'}</td><td class="n">${r.w.qd?r.w.q.toLocaleString('tr-TR'):'–'}</td><td class="n">${r.last?`<b>${fmtNet(netOf(r.last).tot)}</b> <span class="muted small">${EXAMS[r.last.type].label}</span>`:'–'}</td><td>${r.pd.due?`<button class="chip warn" style="border:0" data-a="pcall" data-id="${r.s.id}">Aranmalı</button>`:`<span class="chip ok">${r.pd.left} gün sonra</span>`}</td><td>${!payOK()?'<span class="chip">Kilitli</span>':r.od.list.length?`<span class="chip bad">${TL(r.od.sum)}</span>`:'<span class="chip ok">Güncel</span>'}</td></tr>`).join('')}</tbody></table></div>
   <p class="small muted" style="margin:10px 0 0">Bir güne dokunarak o günün arama kaydını açabilirsiniz. Hücrede: üstte arama durumu, ortada görev tamamlama, altta çalışma süresi.</p></div>
   <div class="grid g2"><div class="card"><div class="ctitle"><h3>Çalışma süresi (saat)</h3><span class="muted small">${wLabel(wk)}</span></div>${hbars(rows.map(r=>({label:r.s.name,v:r.w.h,color:r.s.color})).sort((x,y)=>y.v-x.v),{fmt:v=>fmtN(v)})}</div>
   <div class="card"><div class="ctitle"><h3>Çözülen soru</h3><span class="muted small">${wLabel(wk)}</span></div>${hbars(rows.map(r=>({label:r.s.name,v:r.w.q,color:r.s.color})).sort((x,y)=>y.v-x.v),{fmt:v=>v.toLocaleString('tr-TR')})}</div></div>`;
@@ -983,6 +1042,7 @@ function bulkModal(){
 }
 function bulkList(){
   const b=ui.bulk;if(!b.ids.length)return '<div class="muted small">Yukarıdan kişi seçin.</div>';
+  if(/\{geciken_/.test(b.text)&&!payOK())return `<div class="alert"><span class="sev"></span>${ic('lock')}<div class="grow"><div class="t">Bu mesaj ödeme bilgisi içeriyor</div><div class="r">Önce ödemelerin şifresini girin.</div></div><button class="btn sm pri" data-a="unlockPay">Şifreyi gir</button></div>`;
   return b.ids.map(id=>{const s=S.students[id];if(!s)return '';const phone=b.aud==='stu'?s.phone:s.parentPhone;const txt=fillTpl(b.text,s);const link=waLink(phone,txt);const sent=b.sent[id];
     return `<div class="rcpt">${avatar(s,30)}<div class="grow"><div style="font-weight:600">${esc(b.aud==='stu'?s.name:(s.parent||'Veli')+' · '+s.name)}</div><div class="ph">${phone?esc(phone):'Telefon kayıtlı değil'} · ${esc(txt.slice(0,70))}${txt.length>70?'…':''}</div></div>${link?`<a class="btn sm ${sent?'done':'wa'}" href="${esc(link)}" target="_blank" rel="noopener" data-a="bSent" data-id="${id}">${sent?ic('check','s')+'Gönderildi':ic('wa','s')+'WhatsApp\'ta aç'}</a>`:`<button class="btn sm" data-a="editS" data-id="${id}">Telefon ekle</button>`}</div>`}).join('');
 }
@@ -995,7 +1055,7 @@ function vOgrenciler(){
   const wk=wkey(today());
   return head+`<div class="grid g3">${ss.map(s=>{
     const w=weekStats(s.id,wk);const ex=examsOf(s.id);const last=ex[ex.length-1];const od=overdue(s);
-    return `<div class="card scard" data-a="openS" data-id="${s.id}" role="button" tabindex="0"><div class="top">${avatar(s,44)}<div class="grow"><h3>${esc(s.name)}</h3><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}</div></div>${s.active===false?'<span class="chip">Pasif</span>':od.list.length?'<span class="chip bad">Ödeme gecikti</span>':s.link?'<span class="chip acc" title="Öğrenci ekranı bağlı">Bağlı</span>':''}</div>
+    return `<div class="card scard" data-a="openS" data-id="${s.id}" role="button" tabindex="0"><div class="top">${avatar(s,44)}<div class="grow"><h3>${esc(s.name)}</h3><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}</div></div>${s.active===false?'<span class="chip">Pasif</span>':payOK()&&od.list.length?'<span class="chip bad">Ödeme gecikti</span>':s.link?'<span class="chip acc" title="Öğrenci ekranı bağlı">Bağlı</span>':''}</div>
     <div><div class="row" style="justify-content:space-between;font-size:13px;margin-bottom:5px"><span class="muted">Bu hafta</span><b class="num">${w.t?pct(w.p):'Program yok'}</b></div><div class="meter"><i style="width:${(w.p||0)*100}%;background:${w.p>=.8?'var(--ok)':w.p>=.5?'var(--hl)':'var(--bad)'}"></i></div></div>
     <div class="kv"><div><span>Son deneme</span><b class="num">${last?`${fmtNet(netOf(last).tot)} net`:'–'}</b></div><div><span>Bu hafta çalışma</span><b class="num">${w.hd?fmtN(w.h)+' saat':'–'}</b></div></div></div>`}).join('')}</div>`;
 }
@@ -1032,9 +1092,9 @@ function vOgrenci(){
   const s=S.students[ui.sid];if(!s){ui.view='ogrenciler';return vOgrenciler()}
   const tabs=[['ozet','Özet'],['program','Haftalık program'],['arama','Aramalar'],['deneme','Denemeler'],['konu','Konular'],['kaynak','Kaynaklar'],['veli','Veli'],['odeme','Ödemeler']];
   const ed=examDateFor(s);
-  const head=`<div class="head"><div class="row" style="gap:14px"><button class="ib" data-a="nav" data-v="ogrenciler" aria-label="Geri">${ic('back')}</button>${avatar(s,52)}<div><h1>${esc(s.name)}</h1><p>${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''} ${s.school?'· '+esc(s.school):''}${s.goalText?' · Hedef: '+esc(s.goalText):''}</p></div></div><div class="row">${ed&&daysTo(ed.date)>=0?`<span class="countdown">${ed.name}'ye <b class="num">${daysTo(ed.date)}</b> gün</span>`:''}<button class="btn" data-a="call" data-id="${s.id}">${ic('phone','s')}Ara</button><button class="btn" data-a="pcall" data-id="${s.id}">${ic('parent','s')}Veli</button><button class="btn" data-a="parentReport" data-id="${s.id}">${ic('msg','s')}Veli raporu</button>${backend==='cloud'?`<button class="btn" data-a="stuLink" data-id="${s.id}">${ic('student','s')}Öğrenci ekranı${s.link?' <span class="dot"></span>':''}</button>`:''}<button class="btn" data-a="editS" data-id="${s.id}">${ic('edit','s')}Düzenle</button></div></div>
+  const head=`<div class="head"><div class="row" style="gap:14px"><button class="ib" data-a="nav" data-v="ogrenciler" aria-label="Geri">${ic('back')}</button>${avatar(s,52)}<div><h1>${esc(s.name)}</h1><p>${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''} ${s.school?'· '+esc(s.school):''}${s.goalText?' · Hedef: '+esc(s.goalText):''}</p></div></div><div class="row">${ed&&daysTo(ed.date)>=0?`<span class="countdown">${ed.name}'ye <b class="num">${daysTo(ed.date)}</b> gün</span>`:''}<button class="btn" data-a="call" data-id="${s.id}">${ic('phone','s')}Ara</button><button class="btn" data-a="pcall" data-id="${s.id}">${ic('parent','s')}Veli</button><button class="btn" data-a="parentReport" data-id="${s.id}">${ic('msg','s')}Veli raporu</button>${backend==='cloud'?`<button class="btn" data-a="stuLink" data-id="${s.id}">${ic('student','s')}Öğrenci ekranı${s.link?' <span class="dot"></span>':''}</button>`:''}<button class="btn" data-a="present" data-id="${s.id}">${ic('eye','s')}Öğrenciye göster</button><button class="btn" data-a="editS" data-id="${s.id}">${ic('edit','s')}Düzenle</button></div></div>
   <div class="stabs">${tabs.map(([k,l])=>`<button class="${ui.stab===k?'on':''}" data-a="stab" data-v="${k}">${l}</button>`).join('')}</div>`;
-  const B={program:programEditor,deneme:examPanel,odeme:payPanel,konu:topicPanel,kaynak:bookPanel,arama:callPanel,veli:parentPanel}[ui.stab]||studentSummary;
+  const B={program:programEditor,deneme:examPanel,odeme:s=>payOK()?payPanel(s):payLocked(),konu:topicPanel,kaynak:bookPanel,arama:callPanel,veli:parentPanel}[ui.stab]||studentSummary;
   return head+B(s);
 }
 function goalCards(s){
@@ -1057,7 +1117,7 @@ function studentSummary(s){
    <div class="kpi"><span class="l">Aramalar (4 hafta)</span><span class="v num">${r4.reached}<small> / ${r4.calls}</small></span><span class="s">${r4.mood?'Motivasyon ort. '+fmtN(r4.mood)+'/5':'Konuşulan / aranan'}</span></div>
    <button class="kpi" data-a="stab" data-v="deneme"><span class="l">Son deneme</span><span class="v num">${last?fmtNet(netOf(last).tot):'–'}<small> net</small></span><span class="s">${last?EXAMS[last.type].label+' · '+fmtD(last.date):'Kayıt yok'}</span></button>
    <button class="kpi" data-a="stab" data-v="veli"><span class="l">Veli görüşmesi</span><span class="v num" style="color:${pd.due?'var(--warn)':'var(--ok)'}">${pd.due?'Aranmalı':pd.left+' gün'}</span><span class="s">${pd.lastOk?'Son: '+fmtDs(pd.lastOk.date):'Kayıt yok'}</span></button>
-   <button class="kpi" data-a="stab" data-v="odeme"><span class="l">Ödeme durumu</span><span class="v num" style="color:${od.list.length?'var(--bad)':'var(--ok)'}">${od.list.length?TL(od.sum):'Güncel'}</span><span class="s">${od.list.length?od.list.length+' ay gecikmiş':s.fee?'Aylık '+TL(s.fee):'Ücret girilmemiş'}</span></button>
+   ${payOK()?`<button class="kpi" data-a="stab" data-v="odeme"><span class="l">Ödeme durumu</span><span class="v num" style="color:${od.list.length?'var(--bad)':'var(--ok)'}">${od.list.length?TL(od.sum):'Güncel'}</span><span class="s">${od.list.length?od.list.length+' ay gecikmiş':s.fee?'Aylık '+TL(s.fee):'Ücret girilmemiş'}</span></button>`:`<button class="kpi" data-a="unlockPay"><span class="l">Ödeme durumu</span><span class="v">${ic('lock')}</span><span class="s">Kilitli</span></button>`}
   </div>
   ${al.length?`<div class="alerts">${al.map(a=>`<div class="alert ${a.sev}"><span class="sev"></span><div class="grow"><div class="t">${esc(a.t)}</div><div class="r">${esc(a.r)}</div></div><button class="btn sm" data-a="${a.a}" data-id="${a.sid}">${esc(a.btn)}</button></div>`).join('')}</div>`:''}
   <div class="grid g2">
@@ -1137,7 +1197,7 @@ function vProgram(){
 function programEditor(s){
   const wk=ui.week;const p=prog(s.id,wk);const tk=dkey(today());const w=weekStats(s.id,wk);
   const nav=`<div class="weeknav"><button class="ib" data-a="wk" data-v="-1" aria-label="Önceki hafta">${ic('left')}</button><span class="wl">${wLabel(wk)}</span><button class="ib" data-a="wk" data-v="1" aria-label="Sonraki hafta">${ic('right')}</button>${wk!==wkey(today())?`<button class="btn sm" data-a="wk" data-v="0">Bu hafta</button>`:''}</div>`;
-  const tools=`<div class="row"><button class="btn sm" data-a="copyWeek">${ic('copy','s')}Geçen haftadan kopyala</button><button class="btn sm" data-a="tplOpen">${ic('tpl','s')}Şablon</button><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button><button class="btn sm" data-a="printProg">${ic('report','s')}Yazdır</button><button class="btn sm pri" data-a="exportPng">${ic('dl','s')}Programı görsel olarak al</button></div>`;
+  const tools=`<div class="row"><button class="btn sm" data-a="copyWeek">${ic('copy','s')}Geçen haftadan kopyala</button><button class="btn sm" data-a="tplOpen">${ic('tpl','s')}Şablon</button><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button><button class="btn sm" data-a="present" data-id="${s.id}">${ic('eye','s')}Öğrenciye göster</button><button class="btn sm" data-a="printProg">${ic('report','s')}Yazdır</button><button class="btn sm pri" data-a="exportPng">${ic('dl','s')}Programı görsel olarak al</button></div>`;
   const days=Array.from({length:7},(_,i)=>{
     const d=addD(pkey(wk),i);const day=p?p.days[i]:{tasks:[],call:null};const sc=score(day.tasks);const c=day.call;const qh=dayQH(day);
     return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[i]}</b> <small>${fmtDs(d)}</small></div><button class="callmark ${c?callMk(c.st):''}" data-a="call" data-id="${s.id}" data-d="${dkey(d)}" title="${c?callLabel(c.st):'Arama kaydı yok'}">${ic('phone','s')}</button></div>${sc.t?`<div class="meter"><i style="width:${(sc.p||0)*100}%;background:${sc.p>=.8?'var(--ok)':sc.p>=.5?'var(--hl)':'var(--bad)'}"></i></div>`:''}${qh.q!=null||qh.h!=null?`<div class="dq num">${qh.h!=null?fmtN(qh.h)+' sa':''}${qh.q!=null&&qh.h!=null?' · ':''}${qh.q!=null?qh.q+' soru':''}</div>`:''}</div>
@@ -1378,7 +1438,8 @@ function calcNets(){
 /* ============ ÖDEMELER ============ */
 function vOdeme(){
   const ss=students(true).filter(s=>s.active!==false||Object.values(S.payments).some(p=>p.sid===s.id&&String(p.period).startsWith(ui.year)));
-  const head=`<div class="head"><div><h1>Ödemeler</h1><p>Aylık ücret takibi ve ödeme getirilen tarihler</p></div><div class="row"><div class="weeknav"><button class="ib" data-a="yr" data-v="-1" aria-label="Önceki yıl">${ic('left')}</button><span class="wl" style="min-width:70px">${ui.year}</span><button class="ib" data-a="yr" data-v="1" aria-label="Sonraki yıl">${ic('right')}</button></div>${ss.length?`<button class="btn pri" data-a="addPay" data-id="">${ic('plus')}Ödeme al</button>`:''}</div></div>`;
+  const head=`<div class="head"><div><h1>Ödemeler</h1><p>Aylık ücret takibi ve ödeme getirilen tarihler</p></div><div class="row"><div class="weeknav"><button class="ib" data-a="yr" data-v="-1" aria-label="Önceki yıl">${ic('left')}</button><span class="wl" style="min-width:70px">${ui.year}</span><button class="ib" data-a="yr" data-v="1" aria-label="Sonraki yıl">${ic('right')}</button></div>${ss.length&&payOK()?`<button class="btn" data-a="lockPay">${ic('lock','s')}Kilitle</button><button class="btn pri" data-a="addPay" data-id="">${ic('plus')}Ödeme al</button>`:''}</div></div>`;
+  if(!payOK())return `<div class="head"><div><h1>Ödemeler</h1><p>Aylık ücret takibi ve ödeme getirilen tarihler</p></div></div>`+payLocked();
   if(!students(true).length)return head+noStudents();
   const t=today(),cm=mkey(t);
   let expM=0,paidM=0,expY=0,lateAll=0;
@@ -1458,12 +1519,12 @@ function vRapor(){
    <div class="kpi"><span class="l">Öğrenci araması</span><span class="v num">${T.c}</span><span class="s">${T.r} görüşmede konuşuldu</span></div>
    <div class="kpi"><span class="l">Veli görüşmesi</span><span class="v num">${T.pc}</span><span class="s">Bu dönemde kaydedilen</span></div>
    <div class="kpi"><span class="l">Deneme</span><span class="v num">${T.e}</span><span class="s">Bu dönemde girilen</span></div>
-   <div class="kpi"><span class="l">Tahsilat</span><span class="v num">${TL(T.paid)}</span><span class="s">${ui.period==='hafta'?'Bu hafta alınan':'Beklenen '+TL(T.due)}</span></div></div>
+   ${payOK()?`<div class="kpi"><span class="l">Tahsilat</span><span class="v num">${TL(T.paid)}</span><span class="s">${ui.period==='hafta'?'Bu hafta alınan':'Beklenen '+TL(T.due)}</span></div>`:`<button class="kpi" data-a="unlockPay"><span class="l">Tahsilat</span><span class="v">${ic('lock')}</span><span class="s">Kilitli</span></button>`}</div>
   <div class="grid g2"><div class="card"><div class="ctitle"><h3>Öğrencilere göre tamamlama</h3></div>${hbars(rows.filter(r=>r.st.t).map(r=>({label:r.s.name,v:r.st.p})).sort((a,b)=>b.v-a.v),{pct:true,max:1})}</div>
   <div class="card"><div class="ctitle"><h3>Dönem içinde tamamlama</h3><span class="muted small">Tüm öğrenciler</span></div>${colChart(trend,{pct:true,max:1})}</div>
   <div class="card"><div class="ctitle"><h3>Öğrencilere göre çalışma süresi</h3></div>${hbars(rows.map(r=>({label:r.s.name,v:r.st.h,color:r.s.color})).filter(x=>x.v).sort((a,b)=>b.v-a.v),{fmt:v=>fmtN(v)+' sa'})}</div>
   <div class="card"><div class="ctitle"><h3>Dönemin en çok hata yapılan konuları</h3></div>${gwl.length?hbars(gwl):'<div class="empty small">Bu dönemde girilen denemelerde konu kaydı yok.</div>'}</div></div>
-  <div class="card"><div class="ctitle"><h3>Öğrenci bazında rapor · ${pr.label}</h3></div><div class="tw"><table class="t"><thead><tr><th>Öğrenci</th><th class="n">Görev</th><th class="n">Oran</th><th class="n">Saat</th><th class="n">Soru</th><th class="n">Arama</th><th class="n">Motivasyon</th><th class="n">Veli</th><th class="n">Deneme</th><th class="n">Ort. net</th><th class="n">Net değişimi</th><th class="n">Ödeme</th></tr></thead><tbody>${rows.map(r=>`<tr style="cursor:pointer" data-a="openS" data-id="${r.s.id}"><td><span class="row" style="gap:8px;flex-wrap:nowrap">${avatar(r.s,26)}<span style="white-space:nowrap">${esc(r.s.name)}</span></span></td><td class="n">${r.st.t?`${r.st.y}/${r.st.t}`:'–'}</td><td class="n"><span class="chip ${r.st.p==null?'':r.st.p>=.8?'ok':r.st.p>=.5?'warn':'bad'}">${pct(r.st.p)}</span></td><td class="n">${r.st.hd?fmtN(r.st.h):'–'}</td><td class="n">${r.st.q?r.st.q.toLocaleString('tr-TR'):'–'}</td><td class="n">${r.st.reached}/${r.st.calls}</td><td class="n">${r.mood?fmtN(r.mood):'–'}</td><td class="n">${r.pc||'–'}</td><td class="n">${r.exN||'–'}</td><td class="n">${r.avg!=null?fmtNet(r.avg):'–'}</td><td class="n">${r.dnet==null?'–':`<span style="color:${r.dnet>=0?'var(--ok)':'var(--bad)'};font-weight:600">${r.dnet>=0?'+':''}${fmtNet(r.dnet)}</span>`}</td><td class="n">${ui.period==='hafta'?(r.paid?TL(r.paid):'–'):(r.due?`${TL(r.paid)} / ${TL(r.due)}`:(r.paid?TL(r.paid):'–'))}</td></tr>`).join('')}</tbody></table></div></div>`;
+  <div class="card"><div class="ctitle"><h3>Öğrenci bazında rapor · ${pr.label}</h3></div><div class="tw"><table class="t"><thead><tr><th>Öğrenci</th><th class="n">Görev</th><th class="n">Oran</th><th class="n">Saat</th><th class="n">Soru</th><th class="n">Arama</th><th class="n">Motivasyon</th><th class="n">Veli</th><th class="n">Deneme</th><th class="n">Ort. net</th><th class="n">Net değişimi</th><th class="n">Ödeme</th></tr></thead><tbody>${rows.map(r=>`<tr style="cursor:pointer" data-a="openS" data-id="${r.s.id}"><td><span class="row" style="gap:8px;flex-wrap:nowrap">${avatar(r.s,26)}<span style="white-space:nowrap">${esc(r.s.name)}</span></span></td><td class="n">${r.st.t?`${r.st.y}/${r.st.t}`:'–'}</td><td class="n"><span class="chip ${r.st.p==null?'':r.st.p>=.8?'ok':r.st.p>=.5?'warn':'bad'}">${pct(r.st.p)}</span></td><td class="n">${r.st.hd?fmtN(r.st.h):'–'}</td><td class="n">${r.st.q?r.st.q.toLocaleString('tr-TR'):'–'}</td><td class="n">${r.st.reached}/${r.st.calls}</td><td class="n">${r.mood?fmtN(r.mood):'–'}</td><td class="n">${r.pc||'–'}</td><td class="n">${r.exN||'–'}</td><td class="n">${r.avg!=null?fmtNet(r.avg):'–'}</td><td class="n">${r.dnet==null?'–':`<span style="color:${r.dnet>=0?'var(--ok)':'var(--bad)'};font-weight:600">${r.dnet>=0?'+':''}${fmtNet(r.dnet)}</span>`}</td><td class="n">${!payOK()?'<span class="muted">Kilitli</span>':ui.period==='hafta'?(r.paid?TL(r.paid):'–'):(r.due?`${TL(r.paid)} / ${TL(r.due)}`:(r.paid?TL(r.paid):'–'))}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 /* ============ KULLANIM KILAVUZU ============ */
@@ -1547,11 +1608,22 @@ const KILAVUZ=[
   ${KS(['Öğrenci sayfasında <b>Veli raporu</b>\'na basın.','<b>Geçen hafta</b> veya <b>Bu hafta</b>\'yı seçin. Görev tamamlama, çalışma saati, soru sayısı, görüşmeler, motivasyon, deneme sonuçları, hedefe kalan net, sınava kalan gün ve odaklanılacak konular hazır metin olarak yazılır.','<b>WhatsApp\'ta veliye gönder</b>\'e basın; mesaj velinin WhatsApp yazışmasında hazır açılır. Ya da <b>Kopyala</b> deyip istediğiniz yere yapıştırın.'])}
   <p>Rapordaki “Değerlendirmem” satırı, Program ekranındaki <b>Hafta sonu değerlendirmesi</b> kutusundan gelir. Raporu birçok veliye birden göndermek için Toplu WhatsApp'ta <b>Velilere</b> ve “Haftalık bilgilendirme” şablonunu seçin.</p>`],
  ['odeme','Ödemeler',`
+  <p>Ödemeler şifreyle korunur; şifreyi girmeden bu ekran açılmaz (ayrıntı: “Gizlilik, şifre ve öğrenciye göstermek” bölümü).</p>
   <h3>Ödeme kaydetmek</h3>
   ${KS(['<b>Ödemeler</b> ekranında tablodan öğrencinin ilgili ayına dokunun ya da <b>Ödeme al</b>\'a basın.','<b>Getirdiği tarih</b>, <b>tutar</b>, <b>hangi ayın ücreti</b> olduğu ve ödeme yöntemini seçin. İsterseniz not ekleyin (“kalanı ay sonunda” gibi).','<b>Kaydet</b>. Ödeme, ödeme defterine ve öğrencinin ödeme geçmişine işlenir.'])}
   <h3>Tabloyu okumak</h3>
   <p>${KB('ok','Yeşil')} ödendi (hücrede ödemenin getirildiği tarih yazar), ${KB('warn','Sarı')} eksik ödendi, ${KB('bad','Kırmızı')} ödeme günü geçti, gri henüz zamanı gelmedi. Aylık ücreti girilmemiş öğrencilerde ay takibi yapılmaz.</p>
   <p>Üstteki kartlar bu ay beklenen ve tahsil edilen tutarı, kalan tutarı, toplam gecikmeyi ve yıllık tahsilatı gösterir. <b>Ödeme defteri</b> bütün ödemeleri getirildiği tarihe göre sıralar. Gecikmiş bir ödeme için öğrencinin Ödemeler sekmesindeki <b>Hatırlat</b> düğmesi veliye kibar bir WhatsApp mesajı hazırlar.</p>`],
+ ['gizlilik','Gizlilik, şifre ve öğrenciye göstermek',`
+  <h3>Ödemeler şifreli</h3>
+  <p>Ödeme bilgileri şifre girilene kadar programın <b>hiçbir yerinde görünmez</b>: Ödemeler ekranı, Bugün ekranındaki kart, uyarılar, Genel izleme, Raporlar ve öğrenci sayfalarındaki ödeme kısımları kilit simgesiyle kapalı durur.</p>
+  ${KS(['İlk sefer: <b>Ödemeler</b>\'e girin veya <b>Diğer → Ayarlar → Gizlilik ve şifre → Şifre belirle</b>\'ye basın. 4–8 haneli bir rakam şifre seçip iki kez yazın.','Sonraki seferlerde kilitli bir ödeme alanına dokununca şifre sorulur; şifreyi girince ödemeler açılır.','İşiniz bitince Ödemeler ekranındaki <b>Kilitle</b>\'ye basın. Program 2 dakikadan uzun arka planda kalırsa da kendiliğinden kilitlenir.'])}
+  <p><b>Şifreyi değiştirmek:</b> Ayarlar → Gizlilik ve şifre → <b>Şifreyi değiştir</b>. <b>Şifreyi unutursanız:</b> şifre penceresindeki “Şifremi unuttum” şifreyi sıfırlar ama gizlilik için bütün ödeme kayıtlarını da siler; ödemeler son yedekten geri getirilebilir.</p>
+  <h3>Öğrenciye göster</h3>
+  <p>iPad'i bir öğrenciye uzattığınızda diğer öğrencilerin adlarını ve kaç öğrenciniz olduğunu görmemesi için bu modu kullanın.</p>
+  ${KS(['Öğrencinin sayfasında veya Program ekranında <b>Öğrenciye göster</b>\'e basın.','Ekranda yalnızca o öğrencinin haftalık programı, haftanın hedefi ve haftanın sözü görünür. Menüler kapanır, başka öğrenciye geçilemez.','Öğrenci yalnızca hafta değiştirebilir. Çıkmak için sağ üstteki <b>Çık</b>\'a basıp şifrenizi girin.'])}
+  <p>Diğer gizlilik önlemleri: menüde toplam öğrenci sayısı yazmaz; program görseli, veli raporu ve WhatsApp mesajları yalnızca ilgili öğrencinin bilgisini içerir ve toplu mesajlar herkese ayrı ayrı gider.</p>
+  <p class="small muted">Not: Şifre, iPad'i elinize alan birinin ödemeleri ekranda görmesini engeller. Yedek dosyası şifreli değildir; yedekleri yalnızca size ait yerlerde (kendi Dosyalar'ınız, kendinize WhatsApp) saklayın.</p>`],
  ['rapor','Raporlar',`
   <p><b>Diğer → Raporlar</b>'dan açılır. Üstten <b>Hafta</b>, <b>Ay</b> veya <b>Yıl</b> seçip oklarla dönem değiştirirsiniz.</p>
   <ul><li>Dönemin görev tamamlama oranı, toplam çalışma saati, soru sayısı, öğrenci ve veli aramaları, deneme sayısı ve tahsilatı</li><li>Öğrencilere göre tamamlama ve çalışma süresi grafikleri</li><li>Dönemin en çok hata yapılan konuları</li><li>Her öğrenci için ayrıntılı tablo. Bir satıra dokununca öğrencinin sayfası açılır.</li></ul>
@@ -1589,8 +1661,9 @@ function vAyar(){
    <div style="display:flex;flex-direction:column;gap:8px">${tps.map(t=>`<div class="alert ${t.aud==='par'?'ok':'info'}"><span class="sev"></span><div class="grow"><div class="t">${esc(t.name)} <span class="chip">${t.aud==='par'?'Veli':'Öğrenci'}</span></div><div class="r" style="white-space:pre-wrap">${esc(t.text.slice(0,140))}${t.text.length>140?'…':''}</div></div><button class="ib" data-a="tplMsgForm" data-id="${t.id}" aria-label="Düzenle">${ic('edit','s')}</button></div>`).join('')}</div></div>
   <div class="grid g2">
    <div class="card"><h3>Sınav tarihleri ve veli araması</h3><p style="margin-top:0" class="small muted">Geri sayımlar bu tarihlere göre hesaplanır. Varsayılan tarihler tahminidir; ÖSYM ve MEB takvimi açıklanınca güncelleyin.</p><div class="fg"><label class="f">YKS (ilk oturum)<input type="date" id="setYks" data-ch="setDate" value="${esc(st.yks)}"></label><label class="f">LGS<input type="date" id="setLgs" data-ch="setDate" value="${esc(st.lgs)}"></label><label class="f">Veliler varsayılan olarak kaç günde bir aransın<input type="number" min="1" max="90" id="setPE" data-ch="setDate" value="${esc(st.parentEvery)}"></label></div></div>
-   <div class="card"><h3>Kayıt yeri</h3><p style="margin-top:0">${backend==='cloud'?'Veriler claude.ai üzerinde bu sayfaya bağlı ortak alanda saklanıyor. Sayfanın sahibi ve Düzenleyen olarak eklenen kişiler aynı verileri görür; öğrenciler yalnızca kendi programlarını görebilir.':'Tüm veriler yalnızca bu iPad’in içinde saklanıyor; internete veya başka bir hesaba gönderilmiyor. İnternet olmadan da çalışır. iPad değişirse veya sıfırlanırsa kayıtlar gider; bu yüzden haftada bir yedek alın.'}</p><div class="row"><span class="chip ${backend==='cloud'?'ok':'acc'}"><span class="dot ${backend==='cloud'?'':'loc'}"></span>${backend==='cloud'?'Bulutta kayıtlı':'Bu iPad\'de kayıtlı'}${SET().lastBackup?' · son yedek '+fmtDs(SET().lastBackup):''}</span><span class="muted small">${n} öğrenci, ${Object.keys(S.programs).length} haftalık program, ${Object.keys(S.exams).length} deneme, ${Object.keys(S.payments).length} ödeme</span></div></div>
+   <div class="card"><h3>Kayıt yeri</h3><p style="margin-top:0">${backend==='cloud'?'Veriler claude.ai üzerinde bu sayfaya bağlı ortak alanda saklanıyor. Sayfanın sahibi ve Düzenleyen olarak eklenen kişiler aynı verileri görür; öğrenciler yalnızca kendi programlarını görebilir.':'Tüm veriler yalnızca bu iPad’in içinde saklanıyor; internete veya başka bir hesaba gönderilmiyor. İnternet olmadan da çalışır. iPad değişirse veya sıfırlanırsa kayıtlar gider; bu yüzden haftada bir yedek alın.'}</p><div class="row"><span class="chip ${backend==='cloud'?'ok':'acc'}"><span class="dot ${backend==='cloud'?'':'loc'}"></span>${backend==='cloud'?'Bulutta kayıtlı':'Bu iPad\'de kayıtlı'}${SET().lastBackup?' · son yedek '+fmtDs(SET().lastBackup):''}</span><span class="muted small">${n} öğrenci, ${Object.keys(S.programs).length} haftalık program, ${Object.keys(S.exams).length} deneme, ${payOK()?Object.keys(S.payments).length+' ödeme':'ödemeler kilitli'}</span></div></div>
    <div class="card"><h3>Yedek</h3><p style="margin-top:0">Tüm kayıtlar (görseller dahil) tek dosyada toplanır. “Yedek al”a basınca iPad'in paylaşım menüsü açılır: Dosyalar'a kaydedin veya kendinize WhatsApp'tan gönderin. Yeni bir iPad'de “Yedekten geri yükle” ile her şey geri gelir.</p><div class="row"><button class="btn pri" data-a="backup">${ic('dl','s')}Yedek indir</button><button class="btn" data-a="restore">Yedekten geri yükle</button></div></div>
+   <div class="card"><h3>Gizlilik ve şifre</h3><p style="margin-top:0">Şifre; ödemeleri görmek ve “Öğrenciye göster” modundan çıkmak için istenir. Ödemeler, program 2 dakikadan uzun arka planda kalınca veya “Kilitle”ye basınca yeniden kilitlenir.</p><div class="row"><span class="chip ${hasPin()?'ok':'warn'}">${ic('lock','s')}${hasPin()?'Şifre belirlendi':'Şifre belirlenmedi'}</span>${hasPin()?`<button class="btn" data-a="pinChange">Şifreyi değiştir</button>${payOK()?`<button class="btn" data-a="lockPay">Ödemeleri kilitle</button>`:''}`:`<button class="btn pri" data-a="unlockPay">Şifre belirle</button>`}</div></div>
    <div class="card"><h3>Örnek veriler</h3><p style="margin-top:0">Programı tanımak için örnek öğrenciler, programlar, denemeler, konular, veli görüşmeleri ve ödemeler oluşturur. Adlarının yanında “(Örnek)” yazar; tek tuşla silinir.</p><div class="row">${demo?`<button class="btn danger" data-a="clearDemo">${ic('trash','s')}Örnek verileri sil (${demo})</button>`:`<button class="btn" data-a="loadDemo">Örnek verileri yükle</button>`}</div></div>
    ${backend==='local'?`<div class="card"><h3>Uygulama kurulumu</h3><p style="margin-top:0">${navigator.standalone||matchMedia('(display-mode: standalone)').matches?'Program ana ekrandan uygulama olarak çalışıyor.':'Safari\'de Paylaş simgesine basıp <b>Ana Ekrana Ekle</b>\'yi seçin. Program ana ekranda simge olarak durur, tam ekran ve internetsiz çalışır.'}</p></div>`:''}
    <div class="card" style="grid-column:1/-1"><h3>Kısa kullanım</h3><div class="tl small">
@@ -1704,6 +1777,15 @@ const cur=()=>S.students[ui.sid];
 const saveS=s=>put('students',s.id,clone(s));
 const A={
   nav(d){ui.view=d.v;closeModal();window.scrollTo(0,0);render()},
+  unlockPay(){pinModal('pay')},
+  lockPay(){payUnlocked=false;render();toast('Ödemeler kilitlendi')},
+  pinOk(){pinSubmit()},
+  pinChange(){pinModal('change')},
+  pinForgot(){confirmBox('Şifre sıfırlansın mı?','Şifreyi unuttuysanız sıfırlayabilirsiniz; ancak gizlilik için <b>bütün ödeme kayıtları da silinir</b>. Yedeğiniz varsa sonra “Yedekten geri yükle” ile ödemeleri geri getirebilirsiniz (yedekteki eski şifre de geri gelir).','Şifreyi ve ödemeleri sil',()=>{
+    for(const id of Object.keys(S.payments))del('payments',id);const st=Object.assign({},SET());delete st.pinHash;put('settings','main',st);payUnlocked=false;closeModal();toast('Şifre sıfırlandı; yeni şifre belirleyin')})},
+  present(d){payUnlocked=false;ui.present=d.id||ui.sid;ui.pweek=ui.week||wkey(today());closeModal();window.scrollTo(0,0);render()},
+  presentExit(){if(hasPin())pinModal('exit');else{ui.present=null;render();toast('İpucu: Ayarlar\'dan şifre belirlerseniz bu moddan çıkmak şifre ister.')}},
+  pwk(d){ui.pweek=d.v==='0'?wkey(today()):dkey(addD(pkey(ui.pweek),7*+d.v));render()},
   sozDegis(){const s=cur();const p=editProg(s.id,ui.week);if(p.motto){p.motto='';const m=$('#pMotto');if(m)m.value=''}else p.mottoShift=(p.mottoShift||0)+1;put('programs',pid(s.id,ui.week),p)},
   printProg(){
     const s=cur();if(!s)return;const url=drawProgram(s,ui.week).toDataURL('image/png');
@@ -1844,8 +1926,8 @@ const A={
     if(d.id)Object.assign(s.books.find(b=>b.id===d.id),o);else s.books.push(Object.assign({id:newId()},o));saveS(s);closeModal()},
   delBook(d){const s=clone(cur());s.books=(s.books||[]).filter(b=>b.id!==d.id);saveS(s);closeModal()},
   yr(d){ui.year+= +d.v;render()},
-  addPay(d){payForm(d.id||ui.sid||'',d.m)},
-  editPay(d){payForm(null,null,d.id)},
+  addPay(d){if(!payOK())return pinModal('pay');payForm(d.id||ui.sid||'',d.m)},
+  editPay(d){if(!payOK())return pinModal('pay');payForm(null,null,d.id)},
   savePay(d){
     const sid=val('pS');const amount=+val('pA');if(!sid){toast('Öğrenci seçin');return}if(!amount){toast('Tutar girin');return}
     const id=d.id||'p'+newId();put('payments',id,{sid,period:val('pM'),amount,date:val('pD')||dkey(today()),method:val('pY'),note:val('pN')});closeModal();toast('Ödeme kaydedildi');
@@ -1856,7 +1938,8 @@ const A={
   async csv(){
     const rows=reportRows();const pr=periodRange();
     const head=['Öğrenci','Görev','Tam yapılan','Kısmen','Yapılmayan','Oran %','Çalışma saati','Soru','Arama','Konuşulan','Motivasyon','Veli görüşmesi','Deneme','Ort. net','Ödenen','Beklenen'];
-    const lines=[head].concat(rows.map(r=>[r.s.name,r.st.t,r.st.y,r.st.k,r.st.n,r.st.p==null?'':Math.round(r.st.p*100),r1(r.st.h),r.st.q,r.st.calls,r.st.reached,r.mood?r1(r.mood):'',r.pc,r.exN,r.avg!=null?r1(r.avg):'',r.paid,r.due]));
+    if(!payOK())head.splice(-2,2);
+    const lines=[head].concat(rows.map(r=>{const a=[r.s.name,r.st.t,r.st.y,r.st.k,r.st.n,r.st.p==null?'':Math.round(r.st.p*100),r1(r.st.h),r.st.q,r.st.calls,r.st.reached,r.mood?r1(r.mood):'',r.pc,r.exN,r.avg!=null?r1(r.avg):''];if(payOK())a.push(r.paid,r.due);return a}));
     const txt='\ufeff'+lines.map(l=>l.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
     saveFile(`${APP} rapor - ${pr.label}.csv`,txt,'text/csv');
   },
