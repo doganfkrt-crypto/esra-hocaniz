@@ -374,8 +374,57 @@ const TOPICS={
 const TSETS={'LGS':['LGS'],'YKS-SAY':['TYT','AYT_SAY'],'YKS-EA':['TYT','AYT_EA'],'YKS-SÖZ':['TYT','AYT_SOZ'],'YKS-DİL':['TYT'],'Ara sınıf':['TYT']};
 const TST={b:'Bitti',t:'Tekrar lazım',e:'Eksik'};
 const BIRIM=['soru','test','sayfa','dk','konu','deneme'];
-// Haftanın motivasyon cümleleri: her hafta (ve her öğrenci için) sırayla değişir
-const SOZLER=[
+// Tarihten ünlü sözler [söz, söyleyen]
+const UNLU=[
+ ['Hayatta en hakiki mürşit ilimdir.','Mustafa Kemal Atatürk'],
+ ['Benim manevi mirasım ilim ve akıldır.','Mustafa Kemal Atatürk'],
+ ['Hiçbir şeye ihtiyacımız yok, yalnız bir şeye ihtiyacımız vardır: Çalışkan olmak!','Mustafa Kemal Atatürk'],
+ ['Ey yükselen yeni nesil! İstikbal sizsiniz.','Mustafa Kemal Atatürk'],
+ ['İlim ilim bilmektir, ilim kendin bilmektir.','Yunus Emre'],
+ ['Sen denizde bir damla değilsin, bir damlada koca bir denizsin.','Mevlana'],
+ ['Kanatlarla doğdun, neden hayat boyunca sürünmeyi seçesin?','Mevlana'],
+ ['Bir mum, diğer bir mumu tutuşturmakla ışığından bir şey kaybetmez.','Mevlana'],
+ ['İlim maldan hayırlıdır; ilim seni korur, malı ise sen korursun.','Hz. Ali'],
+ ['Ne kadar yavaş gittiğin önemli değil, yeter ki durma.','Konfüçyüs'],
+ ['Dağı yerinden oynatan kişi, işe küçük taşları taşıyarak başlar.','Konfüçyüs'],
+ ['Bana anlat, unuturum; göster, belki hatırlarım; beni işin içine kat, anlarım.','Konfüçyüs'],
+ ['Bin millik bir yolculuk tek bir adımla başlar.','Lao Tzu'],
+ ['Eğitimin kökleri acı, meyveleri tatlıdır.','Aristoteles'],
+ ['Başlangıç, işin en önemli parçasıdır.','Platon'],
+ ['Hiçbir büyük şey birdenbire ortaya çıkmaz.','Epiktetos'],
+ ['Zorluklar, emeğin bedeni güçlendirdiği gibi zihni güçlendirir.','Seneca'],
+ ['Şans, hazırlığın fırsatla buluştuğu yerdir.','Seneca'],
+ ['Öğrenmek zihni asla yormaz.','Leonardo da Vinci'],
+ ['Engeller beni durduramaz; her engel kararlılığa yenik düşer.','Leonardo da Vinci'],
+ ['Hâlâ öğreniyorum.','Michelangelo'],
+ ['Daha uzağı görebildiysem, devlerin omuzlarında durduğum içindir.','Isaac Newton'],
+ ['Dâhilik yüzde bir ilham, yüzde doksan dokuz terdir.','Thomas Edison'],
+ ['Başarısız olmadım; sadece işe yaramayan on bin yol buldum.','Thomas Edison'],
+ ['En büyük zayıflığımız vazgeçmektir. Başarmanın en kesin yolu her zaman bir kez daha denemektir.','Thomas Edison'],
+ ['Hayat bisiklete binmek gibidir; dengede kalmak için hareket etmeye devam etmelisin.','Albert Einstein'],
+ ['Hayal gücü bilgiden daha önemlidir.','Albert Einstein'],
+ ['Önemli olan, soru sormayı bırakmamaktır.','Albert Einstein'],
+ ['Hayatta korkulacak hiçbir şey yoktur, yalnızca anlaşılacak şeyler vardır.','Marie Curie'],
+ ['Kimse için hayat kolay değildir. Ne olmuş? Azmimiz ve kendimize güvenimiz olmalı.','Marie Curie'],
+ ['Bilgiye yapılan yatırım en iyi faizi getirir.','Benjamin Franklin'],
+ ['Bugün yapabileceğini yarına bırakma.','Benjamin Franklin'],
+ ['Bilmek yetmez, uygulamak gerekir; istemek yetmez, yapmak gerekir.','Goethe'],
+ ['Yarın ölecekmiş gibi yaşa, sonsuza dek yaşayacakmış gibi öğren.','Mahatma Gandhi'],
+ ['Eğitim, dünyayı değiştirmek için kullanabileceğin en güçlü silahtır.','Nelson Mandela'],
+ ['Bir şey başarılana kadar her zaman imkânsız görünür.','Nelson Mandela'],
+ ['Yapabileceğine de yapamayacağına da inansan, haklısın.','Henry Ford'],
+ ['Başlamanın yolu, konuşmayı bırakıp yapmaya başlamaktır.','Walt Disney'],
+ ['Bana bir ağacı kesmek için altı saat verin, ilk dört saati baltamı bilemekle geçiririm.','Abraham Lincoln'],
+ ['Asla, asla, asla pes etmeyin.','Winston Churchill'],
+ ['Büyük işler, küçük şeylerin bir araya gelmesiyle yapılır.','Vincent van Gogh'],
+ ['Eylem, bütün başarıların temel anahtarıdır.','Pablo Picasso'],
+ ['İyimserlik, insanı başarıya götüren inançtır.','Helen Keller'],
+ ['İmkânsız kelimesi yalnızca aptalların sözlüğünde bulunur.','Napolyon Bonapart'],
+ ['Yıldızlara bak, ayaklarına değil.','Stephen Hawking'],
+ ['Gelecek; zayıflar için ulaşılmaz, korkaklar için bilinmez, cesurlar için bir fırsattır.','Victor Hugo']
+];
+// Koçun kendi sözleri (öğrencinin adıyla başlar)
+const KOC_SOZ=[
  'Bugün çözdüğün her soru, sınav günü seni bekleyen bir doğru cevap.',
  'Büyük hedefler, küçük ama her gün atılan adımlarla gerçekleşir.',
  'Yorulduğunda dur, dinlen; ama asla vazgeçme.',
@@ -429,10 +478,19 @@ const SOZLER=[
  'Her sabah yeni bir başlangıç, her akşam küçük bir zafer.',
  'Sen hazırlan; fırsat seni bulacak.'
 ];
+// Ünlü sözler ile koç sözleri sırayla karışık tek havuz
+const SOZ_HAVUZ=(()=>{const a=[];const n=Math.max(UNLU.length,KOC_SOZ.length);for(let i=0;i<n;i++){if(UNLU[i])a.push({q:UNLU[i][0],by:UNLU[i][1]});if(KOC_SOZ[i])a.push({q:KOC_SOZ[i],own:1})}return a})();
+const ilkKucuk=t=>t.charAt(0).toLocaleLowerCase('tr-TR')+t.slice(1);
+/* Haftanın sözü: aynı hafta her öğrenciye farklı söz; her öğrenci haftadan haftaya
+   havuzda ilerler, havuz bitmeden aynı sözü ikinci kez görmez. Sonuç: {intro,text,by} */
 function haftaSozu(s,p,wk){
-  if(p&&p.motto)return p.motto;
-  const n=Math.floor(pkey(wk).getTime()/(7*864e5));
-  return SOZLER[((n+hash(s.id)+(p&&p.mottoShift||0))%SOZLER.length+SOZLER.length)%SOZLER.length];
+  const ad=firstName(s.name);
+  if(p&&p.motto)return{intro:'',text:p.motto.replace(/\{ad\}/g,ad),by:'Esra Hoca'};
+  const ids=Object.keys(S.students).sort();const rank=Math.max(0,ids.indexOf(s.id));
+  const n=Math.floor(pkey(wk).getTime()/(7*864e5));const N=SOZ_HAVUZ.length;
+  const it=SOZ_HAVUZ[(((rank+n+(p&&p.mottoShift||0))%N)+N)%N];
+  if(it.own)return{intro:'',text:ad?`${ad}, ${ilkKucuk(it.q)}`:it.q,by:'Esra Hoca'};
+  return{intro:ad?`${ad}, bu haftanın sözü senin için:`:'Bu haftanın sözü:',text:it.q,by:it.by};
 }
 const PAL=['#2f52cf','#17905f','#c2410c','#8b3fd1','#0e7490','#be185d','#a16207','#4d7c0f','#b91c1c','#4338ca'];
 // hazır mesaj şablonları (Ayarlar'dan düzenlenebilir)
@@ -1096,8 +1154,8 @@ function programEditor(s){
    <div class="card"><div class="ctitle"><h3>Haftanın notları</h3></div><div class="fg" style="grid-template-columns:1fr">
      <label class="f">Öğrenciye not / haftalık hedef (görselde ve öğrenci ekranında görünür)<textarea id="pNote" data-ch="pNote" placeholder="Örn. Bu hafta paragraf hızına odaklanıyoruz. Her gün 20 paragraf sorusu.">${esc(p&&p.note||'')}</textarea></label>
      <label class="f">Hafta sonu değerlendirmesi (veli raporunda “koç notu” olarak kullanılır)<textarea id="pEval" data-ch="pEval" placeholder="Hafta nasıl geçti, sonraki haftaya ne taşınacak…">${esc(p&&p.eval||'')}</textarea></label>
-     <div class="bk" style="background:var(--accent-soft)"><div class="grow"><div class="sec" style="margin-bottom:4px;color:var(--accent)">HAFTANIN SÖZÜ · program görselinin altına yazılır</div><div style="font-style:italic;font-weight:600">“${esc(haftaSozu(s,p,wk))}”</div></div><button class="btn sm" data-a="sozDegis">${ic('right','s')}Başka cümle</button></div>
-     <label class="f">Kendi cümleniz (boş bırakılırsa her hafta otomatik seçilir)<input id="pMotto" data-ch="pMotto" value="${esc(p&&p.motto||'')}" placeholder="Örn. Bu hafta senin haftan, hadi göster kendini!"></label></div></div>
+     <div class="bk" style="background:var(--accent-soft)"><div class="grow"><div class="sec" style="margin-bottom:4px;color:var(--accent)">HAFTANIN SÖZÜ · program görselinin altına yazılır</div>${(()=>{const z=haftaSozu(s,p,wk);return `${z.intro?`<div class="small muted">${esc(z.intro)}</div>`:''}<div style="font-style:italic;font-weight:600">“${esc(z.text)}”</div><div class="small" style="color:var(--accent);font-weight:600;margin-top:2px">— ${esc(z.by)}</div>`})()}</div><button class="btn sm" data-a="sozDegis">${ic('right','s')}Başka cümle</button></div>
+     <label class="f">Kendi cümleniz (boş bırakılırsa her hafta otomatik seçilir; {ad} yazdığınız yere öğrencinin adı gelir)<input id="pMotto" data-ch="pMotto" value="${esc(p&&p.motto||'')}" placeholder="Örn. Bu hafta senin haftan, hadi göster kendini!"></label></div></div>
   </div>
   ${weak.length?`<div class="card"><div class="ctitle"><h3>Eksik ve tekrar gereken konular</h3><span class="muted small">Dokununca görev olarak eklenir</span></div><div class="tchips">${weak.map(w=>`<button class="tc ${w.v}" data-a="topicToProg" data-subj="${esc(w.subj)}" data-topic="${esc(w.topic)}">${ic('plus','s')}${esc(w.topic)} <span class="small" style="opacity:.75">${esc(w.subj)}</span></button>`).join('')}</div></div>`:''}
   <div class="card"><div class="ctitle"><h3>Programa eklenen görseller ve tablolar</h3><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button></div>${imgs.length?`<div class="gallery">${imgs.map(m=>`<div class="gimg"><img src="${m.data}" alt="${esc(m.cap||'Program görseli')}" data-a="viewImg" data-id="${m.id}"><div class="cap"><span>${esc(m.cap||'Görsel')}</span><button class="ib" style="width:30px;height:30px" data-a="delImg" data-id="${m.id}" aria-label="Sil">${ic('trash','s')}</button></div></div>`).join('')}</div>`:'<div class="empty small">Konu tablosu, kitap sayfası veya hazırladığınız çizelgelerin fotoğrafını ekleyebilirsiniz. Görseller bu haftanın programına bağlı kalır.</div>'}</div>`;
@@ -1143,7 +1201,7 @@ function drawProgram(s,wk){
   const bodyH=Math.max(260,...colH)+80;
   ctx.font=`400 26px ${F}`;const noteLines=p.note?wrapText(ctx,p.note,W-2*PAD-40):[];
   const ed=examDateFor(s);const cd=ed&&daysTo(ed.date)>=0?`${ed.name}'ye ${daysTo(ed.date)} gün`:'';
-  const soz=haftaSozu(s,p,wk);ctx.font=`italic 600 30px ${FD}`;const sozLines=wrapText(ctx,'“'+soz+'”',W-2*PAD-120);const sozH=sozLines.length*42+78;
+  const soz=haftaSozu(s,p,wk);ctx.font=`italic 600 30px ${FD}`;const sozLines=wrapText(ctx,'“'+soz.text+'”',W-2*PAD-120);const sozH=sozLines.length*42+(soz.intro?34:0)+112;
   const H=PAD+150+bodyH+(noteLines.length?noteLines.length*36+96:0)+sozH+60;
   c.width=W;c.height=H;
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
@@ -1174,8 +1232,9 @@ function drawProgram(s,wk){
   if(noteLines.length){ctx.fillStyle='#fdf1d2';roundRect(ctx,PAD,y,W-2*PAD,noteLines.length*36+60,14);ctx.fill();ctx.fillStyle='#7a5500';ctx.font=`700 24px ${F}`;ctx.fillText('Bu haftanın hedefi',PAD+22,y+38);ctx.fillStyle='#3b2a00';ctx.font=`400 26px ${F}`;noteLines.forEach((l,k)=>ctx.fillText(l,PAD+22,y+78+k*36));y+=noteLines.length*36+96}
   // haftanın motivasyon cümlesi
   ctx.textAlign='center';ctx.fillStyle=s.color||'#2f52cf';ctx.font=`700 18px ${F}`;ctx.fillText('HAFTANIN SÖZÜ',W/2,y+24);
-  ctx.fillStyle='#1c2236';ctx.font=`italic 600 30px ${FD}`;sozLines.forEach((l,k)=>ctx.fillText(l,W/2,y+66+k*42));
-  ctx.strokeStyle='#dde2ec';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2-60,y+sozLines.length*42+54);ctx.lineTo(W/2+60,y+sozLines.length*42+54);ctx.stroke();ctx.textAlign='left';
+  let sy=y+30;if(soz.intro){ctx.fillStyle='#5f6883';ctx.font=`500 22px ${F}`;ctx.fillText(soz.intro,W/2,sy+28);sy+=34}
+  ctx.fillStyle='#1c2236';ctx.font=`italic 600 30px ${FD}`;sozLines.forEach((l,k)=>ctx.fillText(l,W/2,sy+36+k*42));
+  sy+=sozLines.length*42+34;ctx.fillStyle=s.color||'#2f52cf';ctx.font=`600 22px ${F}`;ctx.fillText('— '+soz.by,W/2,sy+12);ctx.textAlign='left';
   ctx.fillStyle='#9aa2bb';ctx.font=`500 20px ${F}`;ctx.fillText('Yaptığın görevin kutusunu işaretle. Kolay gelsin!',PAD,H-28);
   ctx.font=`700 22px ${FD}`;ctx.fillStyle=s.color||'#2f52cf';const sig=`${APP} · ${COACH}`;ctx.fillText(sig,W-PAD-ctx.measureText(sig).width,H-28);
   return c;
@@ -1461,8 +1520,8 @@ const KILAVUZ=[
   <h3>Görseller ve notlar</h3>
   <ul><li><b>Görsel ekle:</b> hazırladığınız tablonun veya kitap sayfasının fotoğrafını o haftanın programına ekler.</li><li><b>Öğrenciye not / haftalık hedef:</b> program görselinin altında sarı kutuda görünür.</li><li><b>Hafta sonu değerlendirmesi:</b> yalnızca sizin içindir; veli raporunda “Değerlendirmem” satırı olarak kullanılır.</li><li><b>Ders bazında haftalık tablo:</b> her ders için planlanan ve yapılan miktarı gösterir.</li></ul>
   <h3>Haftanın sözü</h3>
-  <p>Her öğrencinin program görselinin altına her hafta kendiliğinden bir motivasyon cümlesi yazılır. Cümle haftadan haftaya ve öğrenciden öğrenciye değişir. <b>Haftanın notları</b> kartında cümleyi görürsünüz:</p>
-  <ul><li><b>Başka cümle</b> düğmesi o hafta için sıradaki cümleye geçer.</li><li><b>Kendi cümleniz</b> kutusuna yazarsanız o hafta sizin cümleniz kullanılır. Kutuyu boşaltırsanız yeniden otomatik seçilir.</li></ul>
+  <p>Her öğrencinin program görselinin altına her hafta kendiliğinden, <b>öğrencinin adıyla</b> bir motivasyon sözü yazılır. Havuzda 98 söz var: Atatürk, Mevlana, Yunus Emre, Konfüçyüs, Einstein, Edison, Marie Curie gibi tarihten ünlü kişilerin sözleri (söyleyenin adıyla) ve sizin imzanızla çıkan kişisel cümleler.</p>
+  <ul><li>Aynı hafta <b>her öğrenciye farklı</b> bir söz gelir.</li><li>Her öğrenci haftadan haftaya havuzda ilerler; havuz bitmeden aynı sözü ikinci kez görmez.</li><li><b>Haftanın notları</b> kartında o haftanın sözünü görürsünüz. <b>Başka cümle</b> düğmesi o hafta için sıradaki söze geçer.</li><li><b>Kendi cümleniz</b> kutusuna yazarsanız o hafta sizin cümleniz kullanılır; <b>{ad}</b> yazdığınız yere öğrencinin adı gelir. Kutuyu boşaltırsanız yeniden otomatik seçilir.</li></ul>
   <h3>Programı öğrenciye göndermek</h3>
   ${KS(['<b>Programı görsel olarak al</b>\'a basın. Haftalık program, altında haftanın sözüyle birlikte düzenli bir resim hâlinde açılır.','<b>Paylaş / WhatsApp\'a gönder</b>\'e basın ve WhatsApp\'ta öğrenciyi seçin. Aynı menüden Fotoğraflar\'a da kaydedebilirsiniz.'])}
   <h3>Programı yazdırmak</h3>
