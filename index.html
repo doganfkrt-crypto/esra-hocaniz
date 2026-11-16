@@ -156,6 +156,7 @@ button.kpi:hover{border-color:var(--accent)}
 .task .body{flex:1;min-width:0;cursor:pointer}
 .task .sb{font-weight:600;font-size:13.5px;line-height:1.25}
 .task .tp{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.tnote{font-size:12px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--hl-soft);color:var(--ink);border-radius:6px;padding:3px 6px;margin-top:4px}
 .task .q{font-size:12px;font-weight:600;color:var(--ink)}
 .st{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none;color:transparent}
 .st.y{background:var(--ok);border-color:var(--ok);color:#fff} .st.k{background:var(--hl);border-color:var(--hl);color:#3b2a00} .st.n{background:var(--bad);border-color:var(--bad);color:#fff}
@@ -535,7 +536,7 @@ function shareProfile(s){
 function syncShare(sid,wk){
   const s=S.students[sid];if(backend!=='cloud'||!s||!s.link||!validLink(s.link))return;
   const p=S.programs[pid(sid,wk)];if(!p)return;
-  send(`share/${s.link}/p/${wk}`,{week:wk,days:p.days.map(d=>({tasks:d.tasks.map(t=>({id:t.id,subj:t.subj,topic:t.topic||'',qty:t.qty||'',unit:t.unit||''}))})),note:p.note||'',t:Date.now()});
+  send(`share/${s.link}/p/${wk}`,{week:wk,days:p.days.map(d=>({tasks:d.tasks.map(t=>({id:t.id,subj:t.subj,topic:t.topic||'',note:t.note||'',qty:t.qty||'',unit:t.unit||''}))})),note:p.note||'',t:Date.now()});
 }
 function pushAllShare(s){const from=wkey(addD(today(),-7));Object.values(S.programs).filter(p=>p.sid===s.id&&p.week>=from).forEach(p=>syncShare(s.id,p.week))}
 function ensureMarkSubs(){
@@ -638,7 +639,7 @@ function alertsFor(st){
 }
 function todayProgramText(s,d){
   const ts=dayTasks(s.id,d||today());if(!ts.length)return '(Bugün için görev yok)';
-  return ts.map(t=>`• ${t.subj}${t.topic?' – '+t.topic:''}${t.qty?` (${t.qty} ${t.unit||''})`:''}`).join('\n');
+  return ts.map(t=>`• ${t.subj}${t.topic?' – '+t.topic:''}${t.qty?` (${t.qty} ${t.unit||''})`:''}${t.note?`\n   ${t.note}`:''}`).join('\n');
 }
 function fillTpl(text,s){
   const od=overdue(s);const ed=examDateFor(s);
@@ -792,7 +793,7 @@ function openCall(sid,dk){
   const p=prog(sid,wk);const day=p?p.days[di]:null;const c=day&&day.call||{};
   ui.callDraft={sid,dk:dkey(d),st:c.st==='no'?'noans':(c.st||''),mood:c.mood||0};
   const prevD=addD(d,-1);const prevP=prog(sid,wkey(prevD));const prevOpen=prevP?prevP.days[dIdx(prevD)].tasks.filter(t=>!t.s):[];
-  const taskRow=(t,dkk)=>`<div class="ctask" style="--sc:${subjColor(t.subj)}"><div class="grow" style="min-width:140px"><div style="font-weight:600">${esc(t.subj)} ${t.fs?'<span class="chip acc">Öğrenci işaretledi</span>':''}</div><div class="small muted">${esc(t.topic||'')} ${t.qty?`· <b class="num" style="color:var(--ink)">${esc(t.qty)} ${esc(t.unit||'')}</b>`:''}</div></div><div class="tri">${[['y','check','Yaptı'],['k','half','Kısmen'],['n','x','Yapmadı']].map(([v,i,l])=>`<button class="${v} ${t.s===v?'on':''}" data-a="callTask" data-id="${sid}" data-d="${dkk}" data-t="${t.id}" data-v="${v}" title="${l}">${ic(i,'s')}<span>${l}</span></button>`).join('')}</div></div>`;
+  const taskRow=(t,dkk)=>`<div class="ctask" style="--sc:${subjColor(t.subj)}"><div class="grow" style="min-width:140px"><div style="font-weight:600">${esc(t.subj)} ${t.fs?'<span class="chip acc">Öğrenci işaretledi</span>':''}</div><div class="small muted">${esc(t.topic||'')} ${t.qty?`· <b class="num" style="color:var(--ink)">${esc(t.qty)} ${esc(t.unit||'')}</b>`:''}</div>${t.note?`<div class="tnote">${esc(t.note)}</div>`:''}</div><div class="tri">${[['y','check','Yaptı'],['k','half','Kısmen'],['n','x','Yapmadı']].map(([v,i,l])=>`<button class="${v} ${t.s===v?'on':''}" data-a="callTask" data-id="${sid}" data-d="${dkk}" data-t="${t.id}" data-v="${v}" title="${l}">${ic(i,'s')}<span>${l}</span></button>`).join('')}</div></div>`;
   const q=ui.callQueue;const qi=q?q.indexOf(sid):-1;
   const stu=day&&(day.sq!=null||day.sh!=null)?`<div class="small" style="color:var(--accent)">Öğrenci bildirdi: ${day.sq!=null?day.sq+' soru':''}${day.sq!=null&&day.sh!=null?', ':''}${day.sh!=null?day.sh+' saat':''}</div>`:'';
   const qv=c.q!=null&&c.q!==''?c.q:(day&&day.sq!=null?day.sq:''),hv=c.h!=null&&c.h!==''?c.h:(day&&day.sh!=null?day.sh:'');
@@ -1006,7 +1007,7 @@ function programEditor(s){
   const days=Array.from({length:7},(_,i)=>{
     const d=addD(pkey(wk),i);const day=p?p.days[i]:{tasks:[],call:null};const sc=score(day.tasks);const c=day.call;const qh=dayQH(day);
     return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[i]}</b> <small>${fmtDs(d)}</small></div><button class="callmark ${c?callMk(c.st):''}" data-a="call" data-id="${s.id}" data-d="${dkey(d)}" title="${c?callLabel(c.st):'Arama kaydı yok'}">${ic('phone','s')}</button></div>${sc.t?`<div class="meter"><i style="width:${(sc.p||0)*100}%;background:${sc.p>=.8?'var(--ok)':sc.p>=.5?'var(--hl)':'var(--bad)'}"></i></div>`:''}${qh.q!=null||qh.h!=null?`<div class="dq num">${qh.h!=null?fmtN(qh.h)+' sa':''}${qh.q!=null&&qh.h!=null?' · ':''}${qh.q!=null?qh.q+' soru':''}</div>`:''}</div>
-    <div class="tasks">${day.tasks.map(x=>`<div class="task" style="--sc:${subjColor(x.subj)}"><div class="body" data-a="editTask" data-i="${i}" data-t="${x.id}"><div class="sb">${esc(x.subj)}</div>${x.topic?`<div class="tp">${esc(x.topic)}</div>`:''}${x.qty?`<div class="q num">${esc(x.qty)} ${esc(x.unit||'')}</div>`:''}</div><button class="st ${x.s||''} ${x.fs?'fs':''}" data-a="cycle" data-i="${i}" data-t="${x.id}" aria-label="Durum" title="${x.fs?'Öğrenci işaretledi':''}">${x.s==='y'?ic('check','s'):x.s==='k'?ic('half','s'):x.s==='n'?ic('x','s'):''}</button></div>`).join('')}
+    <div class="tasks">${day.tasks.map(x=>`<div class="task" style="--sc:${subjColor(x.subj)}"><div class="body" data-a="editTask" data-i="${i}" data-t="${x.id}"><div class="sb">${esc(x.subj)}</div>${x.topic?`<div class="tp">${esc(x.topic)}</div>`:''}${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}${x.qty?`<div class="q num">${esc(x.qty)} ${esc(x.unit||'')}</div>`:''}</div><button class="st ${x.s||''} ${x.fs?'fs':''}" data-a="cycle" data-i="${i}" data-t="${x.id}" aria-label="Durum" title="${x.fs?'Öğrenci işaretledi':''}">${x.s==='y'?ic('check','s'):x.s==='k'?ic('half','s'):x.s==='n'?ic('x','s'):''}</button></div>`).join('')}
     <button class="addt" data-a="addTask" data-i="${i}">${ic('plus','s')}Görev</button></div></div>`}).join('');
   const bySub={};if(p)p.days.forEach(d=>d.tasks.forEach(x=>{const b=bySub[x.subj]||(bySub[x.subj]={plan:0,done:0,n:0,y:0,k:0,unit:x.unit});b.n++;if(x.s==='y'){b.y++;b.done+=+x.qty||0}else if(x.s==='k'){b.k++;b.done+=(+x.qty||0)/2}if(x.unit===b.unit)b.plan+=+x.qty||0}));
   const subRows=Object.entries(bySub).sort((a,b)=>b[1].n-a[1].n);
@@ -1032,6 +1033,7 @@ function taskForm(i,tid,pre){
   ${!t&&weak.length?`<div><div class="sec">Eksik/tekrar konulardan seç</div><div class="tchips">${weak.map(w=>`<button class="tc ${w.v}" data-a="fillTopic" data-subj="${esc(w.subj)}" data-topic="${esc(w.topic)}">${esc(w.topic)}</button>`).join('')}</div></div>`:''}
   <div class="fg">
    <label class="f">Ders<input id="tSubj" list="dl-subj" value="${esc(t?t.subj:pre.subj||'')}" autocomplete="off"><datalist id="dl-subj">${[...subs].map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
+   <label class="f" style="grid-column:1/-1">Not<textarea id="tNote" style="min-height:64px" placeholder="Örn. Kitabın 210–220. sayfaları arası. Yanlışları işaretle.">${esc(t?t.note||'':'')}</textarea></label>
    <label class="f">Konu / kaynak<input id="tTopic" list="dl-top" value="${esc(t?t.topic:pre.topic||'')}" placeholder="Örn. Türev – 3D s.40-52"><datalist id="dl-top">${allTopics.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
    <label class="f">Miktar<input id="tQty" type="number" inputmode="numeric" min="0" value="${esc(t?t.qty:'')}"></label>
    <label class="f">Birim<select id="tUnit">${BIRIM.map(b=>`<option ${(t?t.unit:'soru')===b?'selected':''}>${b}</option>`).join('')}</select></label>
@@ -1058,7 +1060,7 @@ function drawProgram(s,wk){
   const W=2000,colW=(W-80-6*14)/7,PAD=40;
   const c=document.createElement('canvas');const ctx=c.getContext('2d');
   const F='Inter, Segoe UI, Arial, sans-serif',FD='Outfit, Avenir Next, Segoe UI, Arial, sans-serif';
-  const taskH=t=>{ctx.font=`700 23px ${F}`;const sl=wrapText(ctx,t.subj,colW-64).length;ctx.font=`500 21px ${F}`;const tl=t.topic?wrapText(ctx,t.topic,colW-34).length:0;return 18+sl*30+tl*27+(t.qty?30:0)};
+  const taskH=t=>{ctx.font=`700 23px ${F}`;const sl=wrapText(ctx,t.subj,colW-64).length;ctx.font=`500 21px ${F}`;const tl=t.topic?wrapText(ctx,t.topic,colW-34).length:0;ctx.font=`italic 500 20px ${F}`;const nl=t.note?String(t.note).split('\n').reduce((a,p)=>a+wrapText(ctx,p,colW-40).length,0):0;return 18+sl*30+tl*27+(t.qty?30:0)+(nl?nl*26+12:0)};
   const colH=p.days.map(d=>d.tasks.reduce((a,t)=>a+taskH(t)+12,0));
   const bodyH=Math.max(260,...colH)+80;
   ctx.font=`400 26px ${F}`;const noteLines=p.note?wrapText(ctx,p.note,W-2*PAD-40):[];
@@ -1083,6 +1085,7 @@ function drawProgram(s,wk){
       ctx.fillStyle=subjColor(t.subj);ctx.fillRect(x,y+6,5,h-12);
       ctx.fillStyle='#1c2236';ctx.font=`700 23px ${F}`;let yy=y+6;wrapText(ctx,t.subj,colW-64).forEach(l=>{yy+=30;ctx.fillText(l,x+18,yy)});
       ctx.font=`500 21px ${F}`;ctx.fillStyle='#5f6883';(t.topic?wrapText(ctx,t.topic,colW-34):[]).forEach(l=>{yy+=27;ctx.fillText(l,x+18,yy)});
+      if(t.note){ctx.font=`italic 500 20px ${F}`;const nls=String(t.note).split('\n').flatMap(p=>wrapText(ctx,p,colW-40));ctx.fillStyle='#fdf1d2';roundRect(ctx,x+12,yy+8,colW-22,nls.length*26+8,6);ctx.fill();ctx.fillStyle='#5a4300';nls.forEach(l=>{yy+=26;ctx.fillText(l,x+18,yy+6)});yy+=12}
       if(t.qty){yy+=30;ctx.fillStyle='#1c2236';ctx.font=`700 21px ${F}`;ctx.fillText(`${t.qty} ${t.unit||''}`,x+18,yy)}
       ctx.strokeStyle='#c9cfdc';ctx.lineWidth=2;roundRect(ctx,x+colW-40,y+12,26,26,6);ctx.stroke();
       y+=h+12;
@@ -1388,7 +1391,7 @@ function renderStu(){
   ${p.days.map((d,i)=>{const dd=addD(pkey(wk),i);const isT=dkey(dd)===dkey(t);const md=m.days[i]||{};
     return `<div class="card sday" style="${isT?'border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)':''}"><div class="sdh"><h3>${GUN[i]} <span class="muted small" style="font-weight:500">${fmtDs(dd)}</span> ${isT?'<span class="chip acc">Bugün</span>':''}</h3>
     <div class="miniin"><label>Saat<input type="number" inputmode="decimal" step="0.5" min="0" value="${esc(md.h??'')}" data-ch="sH" data-i="${i}" ${STU.readOnly?'disabled':''}></label><label>Soru<input type="number" inputmode="numeric" min="0" value="${esc(md.q??'')}" data-ch="sQ" data-i="${i}" ${STU.readOnly?'disabled':''}></label></div></div>
-    ${d.tasks.length?d.tasks.map(x=>{const s=m.marks[x.id]||'';return `<div class="ctask" style="--sc:${subjColor(x.subj)}"><div class="grow" style="min-width:140px"><div style="font-weight:600">${esc(x.subj)}</div><div class="small muted">${esc(x.topic||'')} ${x.qty?`· <b class="num" style="color:var(--ink)">${esc(x.qty)} ${esc(x.unit||'')}</b>`:''}</div></div><div class="tri">${[['y','check','Yaptım'],['k','half','Yarım'],['n','x','Yapmadım']].map(([vv,ii,l])=>`<button class="${vv} ${s===vv?'on':''}" data-a="sMark" data-w="${wk}" data-t="${x.id}" data-v="${vv}" ${STU.readOnly?'disabled':''}>${ic(ii,'s')}<span>${l}</span></button>`).join('')}</div></div>`}).join(''):'<div class="muted small">Bu gün için görev yok. Dinlen ya da tekrar yap.</div>'}</div>`}).join('')}
+    ${d.tasks.length?d.tasks.map(x=>{const s=m.marks[x.id]||'';return `<div class="ctask" style="--sc:${subjColor(x.subj)}"><div class="grow" style="min-width:140px"><div style="font-weight:600">${esc(x.subj)}</div><div class="small muted">${esc(x.topic||'')} ${x.qty?`· <b class="num" style="color:var(--ink)">${esc(x.qty)} ${esc(x.unit||'')}</b>`:''}</div>${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}</div><div class="tri">${[['y','check','Yaptım'],['k','half','Yarım'],['n','x','Yapmadım']].map(([vv,ii,l])=>`<button class="${vv} ${s===vv?'on':''}" data-a="sMark" data-w="${wk}" data-t="${x.id}" data-v="${vv}" ${STU.readOnly?'disabled':''}>${ic(ii,'s')}<span>${l}</span></button>`).join('')}</div></div>`}).join(''):'<div class="muted small">Bu gün için görev yok. Dinlen ya da tekrar yap.</div>'}</div>`}).join('')}
   ${codeCard}`;
 }
 
@@ -1523,7 +1526,7 @@ const A={
   saveTask(d){
     const subj=val('tSubj');if(!subj){toast('Ders adı gerekli');$('#tSubj').focus();return}
     const s=cur();const p=editProg(s.id,ui.week);const i=+d.i;
-    const data={subj,topic:val('tTopic'),qty:val('tQty'),unit:val('tUnit')};
+    const data={subj,topic:val('tTopic'),note:($('#tNote').value||'').trim(),qty:val('tQty'),unit:val('tUnit')};
     if(d.t){const t=p.days[i].tasks.find(x=>x.id===d.t);Object.assign(t,data)}
     else{const days=ui.taskDays.length?ui.taskDays:[i];days.forEach(k=>p.days[k].tasks.push(Object.assign({id:newId(),s:''},data)))}
     put('programs',pid(s.id,ui.week),p);closeModal();
@@ -1533,13 +1536,13 @@ const A={
   copyWeek(){
     const s=cur();const prevWk=dkey(addD(pkey(ui.week),-7));const src=S.programs[pid(s.id,prevWk)];
     if(!src||!src.days.some(d=>d.tasks.length)){toast('Geçen hafta için program bulunamadı');return}
-    const doCopy=()=>{const p=editProg(s.id,ui.week);src.days.forEach((d,i)=>{p.days[i].tasks=d.tasks.map(t=>({id:newId(),subj:t.subj,topic:t.topic,qty:t.qty,unit:t.unit,s:''}))});put('programs',pid(s.id,ui.week),p);closeModal();toast('Geçen haftanın görevleri kopyalandı')};
+    const doCopy=()=>{const p=editProg(s.id,ui.week);src.days.forEach((d,i)=>{p.days[i].tasks=d.tasks.map(t=>({id:newId(),subj:t.subj,topic:t.topic,note:t.note||'',qty:t.qty,unit:t.unit,s:''}))});put('programs',pid(s.id,ui.week),p);closeModal();toast('Geçen haftanın görevleri kopyalandı')};
     const c=S.programs[pid(s.id,ui.week)];
     if(c&&c.days.some(d=>d.tasks.length))confirmBox('Bu haftanın görevleri değişsin mi?','Bu haftada zaten görevler var. Kopyalama, mevcut görevlerin yerine geçen haftanınkileri koyar (arama kayıtları ve notlar korunur).','Üzerine yaz',doCopy);else doCopy();
   },
   tplOpen(){if(!ui.sid&&students().length)ui.sid=students()[0].id;ui.tplStudents=null;tplModal()},
   tplSave(){const name=val('tplName');if(!name){toast('Şablon adı yazın');return}const p=S.programs[pid(ui.sid,ui.week)];if(!p||!p.days.some(d=>d.tasks.length)){toast('Bu haftada kaydedilecek görev yok');return}
-    put('templates','t'+newId(),{name,days:p.days.map(d=>({tasks:d.tasks.map(x=>({subj:x.subj,topic:x.topic||'',qty:x.qty||'',unit:x.unit||''}))})),t:Date.now()});toast('Şablon kaydedildi');tplModal()},
+    put('templates','t'+newId(),{name,days:p.days.map(d=>({tasks:d.tasks.map(x=>({subj:x.subj,topic:x.topic||'',note:x.note||'',qty:x.qty||'',unit:x.unit||''}))})),t:Date.now()});toast('Şablon kaydedildi');tplModal()},
   tplStu(d,el){const s=new Set(ui.tplStudents);s.has(d.id)?s.delete(d.id):s.add(d.id);ui.tplStudents=[...s];el.classList.toggle('on',s.has(d.id))},
   tplMode(d){ui.tplMode=d.v;tplModal()},
   tplApply(d){const tp=S.templates[d.id];if(!ui.tplStudents.length){toast('En az bir öğrenci seçin');return}
