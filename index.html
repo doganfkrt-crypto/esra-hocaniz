@@ -282,6 +282,12 @@ html,body{margin:0}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .bk{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--hl-soft);color:var(--ink);flex-wrap:wrap}
 .bk .grow{min-width:200px}
+.kil{line-height:1.6;max-width:none;scroll-margin-top:16px}
+.kil p{margin:0 0 10px;max-width:75ch}
+.kil h3{margin:16px 0 8px;font-size:15.5px}
+.kil ul{margin:0 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:5px;max-width:80ch}
+.kil .steps{margin:0 0 12px;max-width:80ch}
+.kil .chip{vertical-align:1px}
 </style>
 </head>
 <body>
@@ -696,14 +702,14 @@ function hbars(items,o={}){
 
 /* ============ arayüz ============ */
 const ui={view:'bugun',sid:null,stab:'ozet',week:wkey(today()),period:'ay',ref:dkey(today()),year:today().getFullYear(),showPassive:false,examType:null,callQueue:null,topicFilter:'all',iweek:wkey(today())};
-const NAV=[['bugun','Bugün','home'],['izleme','Genel izleme','list'],['ogrenciler','Öğrenciler','users'],['program','Program','cal'],['deneme','Denemeler','exam'],['odeme','Ödemeler','wallet'],['rapor','Raporlar','report'],['ayar','Ayarlar','gear']];
+const NAV=[['bugun','Bugün','home'],['izleme','Genel izleme','list'],['ogrenciler','Öğrenciler','users'],['program','Program','cal'],['deneme','Denemeler','exam'],['odeme','Ödemeler','wallet'],['rapor','Raporlar','report'],['ayar','Ayarlar','gear'],['kilavuz','Kılavuz','book']];
 const TABS=[['bugun','Bugün','home'],['izleme','İzleme','list'],['ogrenciler','Öğrenci','users'],['program','Program','cal'],['deneme','Deneme','exam'],['odeme','Ödeme','wallet'],['ayar','Diğer','gear']];
 function renderNav(){
   const v=ui.view==='ogrenci'?'ogrenciler':ui.view;
   $('#side').innerHTML=`<div class="brand"><div class="mark">E</div><div><b>${APP}</b><small>${COACH} · Eğitim Koçu</small></div></div>`+
     NAV.map(([k,l,i])=>`<button class="nv ${v===k?'on':''}" data-a="nav" data-v="${k}">${ic(i)}${l}</button>`).join('')+
     `<div class="foot"><span class="dot"></span>${backend==='cloud'?(netWarn?'Bağlantı bekleniyor':`Bulutta kayıtlı · ${students().length} öğrenci`):`Bu iPad'de kayıtlı · ${students().length} öğrenci`}</div>`;
-  $('#tabbar').innerHTML=TABS.map(([k,l,i])=>`<button class="nv ${v===k||(k==='ayar'&&v==='rapor')?'on':''}" data-a="nav" data-v="${k}">${ic(i)}${l}</button>`).join('');
+  $('#tabbar').innerHTML=TABS.map(([k,l,i])=>`<button class="nv ${v===k||(k==='ayar'&&(v==='rapor'||v==='kilavuz'))?'on':''}" data-a="nav" data-v="${k}">${ic(i)}${l}</button>`).join('');
 }
 let rq=false,deferred=false;
 function scheduleRender(){if(rq)return;rq=true;requestAnimationFrame(()=>{rq=false;const a=document.activeElement;if(a&&$('#view').contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){deferred=true;return}mode==='student'?renderStu():render()})}
@@ -712,7 +718,7 @@ function render(){
   if(mode==='student')return renderStu();
   if(!ready)return;
   renderNav();
-  const V={bugun:vBugun,izleme:vIzleme,ogrenciler:vOgrenciler,ogrenci:vOgrenci,program:vProgram,deneme:vDeneme,odeme:vOdeme,rapor:vRapor,ayar:vAyar}[ui.view]||vBugun;
+  const V={bugun:vBugun,izleme:vIzleme,ogrenciler:vOgrenciler,ogrenci:vOgrenci,program:vProgram,deneme:vDeneme,odeme:vOdeme,rapor:vRapor,ayar:vAyar,kilavuz:vKilavuz}[ui.view]||vBugun;
   const banner=netWarn?`<div class="banner">${ic('alert')}Sunucuya ulaşılamıyor; gösterilen veriler güncel olmayabilir. İnternet bağlantısını kontrol edin.</div>`:'';
   const sy=window.scrollY;
   $('#view').innerHTML=banner+V();
@@ -1324,10 +1330,120 @@ function vRapor(){
   <div class="card"><div class="ctitle"><h3>Öğrenci bazında rapor · ${pr.label}</h3></div><div class="tw"><table class="t"><thead><tr><th>Öğrenci</th><th class="n">Görev</th><th class="n">Oran</th><th class="n">Saat</th><th class="n">Soru</th><th class="n">Arama</th><th class="n">Motivasyon</th><th class="n">Veli</th><th class="n">Deneme</th><th class="n">Ort. net</th><th class="n">Net değişimi</th><th class="n">Ödeme</th></tr></thead><tbody>${rows.map(r=>`<tr style="cursor:pointer" data-a="openS" data-id="${r.s.id}"><td><span class="row" style="gap:8px;flex-wrap:nowrap">${avatar(r.s,26)}<span style="white-space:nowrap">${esc(r.s.name)}</span></span></td><td class="n">${r.st.t?`${r.st.y}/${r.st.t}`:'–'}</td><td class="n"><span class="chip ${r.st.p==null?'':r.st.p>=.8?'ok':r.st.p>=.5?'warn':'bad'}">${pct(r.st.p)}</span></td><td class="n">${r.st.hd?fmtN(r.st.h):'–'}</td><td class="n">${r.st.q?r.st.q.toLocaleString('tr-TR'):'–'}</td><td class="n">${r.st.reached}/${r.st.calls}</td><td class="n">${r.mood?fmtN(r.mood):'–'}</td><td class="n">${r.pc||'–'}</td><td class="n">${r.exN||'–'}</td><td class="n">${r.avg!=null?fmtNet(r.avg):'–'}</td><td class="n">${r.dnet==null?'–':`<span style="color:${r.dnet>=0?'var(--ok)':'var(--bad)'};font-weight:600">${r.dnet>=0?'+':''}${fmtNet(r.dnet)}</span>`}</td><td class="n">${ui.period==='hafta'?(r.paid?TL(r.paid):'–'):(r.due?`${TL(r.paid)} / ${TL(r.due)}`:(r.paid?TL(r.paid):'–'))}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
+/* ============ KULLANIM KILAVUZU ============ */
+const KS=(t)=>`<ol class="steps">${t.map(x=>`<li><span>${x}</span></li>`).join('')}</ol>`;
+const KB=(cls,t)=>`<span class="chip ${cls}">${t}</span>`;
+const KILAVUZ=[
+ ['basla','Başlarken',`
+  <p>“Esra Hoca'nız”, öğrencilerinizin günlük aramalarını, haftalık programlarını, çalışma sürelerini, denemelerini, veli görüşmelerini ve ödemelerini tek yerde tutan programınızdır. Bütün bilgiler <b>yalnızca bu iPad'in içinde</b> saklanır; internete veya başka bir hesaba gönderilmez. İnternet olmadan da çalışır.</p>
+  <h3>Programı açmak</h3>
+  ${KS(['Ana ekrandaki mavi <b>E</b> simgeli <b>Esra Hoca\'nız</b> uygulamasına dokunun.','Program her zaman bu simgeden açılmalı. Safari\'den açarsanız öğrencileriniz görünmez, çünkü kayıtlar simgeden açılan programın içinde duruyor.'])}
+  <h3>Menüler</h3>
+  <p>iPad yataydayken menü solda, dikeydeyken ekranın altında durur. Alt menüdeki <b>Diğer</b> düğmesi Ayarlar'ı açar; Raporlar ve bu Kılavuz da oradan açılır.</p>
+  <h3>Öğrenci listesini ilk kez yüklemek</h3>
+  ${KS(['Size gönderilen “Esra Hoca\'nız öğrenci listesi” dosyasını iPad\'e kaydedin (WhatsApp\'tan geldiyse dosyaya basılı tutup <b>Paylaş → Dosyalar\'a Kaydet</b>).','Programda <b>Diğer → Ayarlar → Yedekten geri yükle</b>\'ye dokunun ve dosyayı seçin.','Çıkan pencerede <b>Geri yükle</b>\'ye basın. Bütün öğrenciler sınıflarıyla gelir.','Bu dosyayı yalnızca bir kez yükleyin. Sonradan tekrar yüklerseniz öğrencilere girdiğiniz bilgilerin üzerine boş hâli yazılır.'])}
+  <h3>Denemek için örnek veriler</h3>
+  <p>Ayarlar'daki <b>Örnek verileri yükle</b> düğmesi adının yanında “(Örnek)” yazan 4 öğrenci oluşturur. Programı tanıdıktan sonra <b>Örnek verileri sil</b> ile tek tuşla kaldırabilirsiniz; sizin girdikleriniz etkilenmez.</p>`],
+ ['bugun','Bugün ekranı ve günlük aramalar',`
+  <p>Program her açıldığında Bugün ekranı gelir. Üstte YKS ve LGS'ye kalan gün sayısı, altında günün özeti vardır.</p>
+  <h3>Üstteki kartlar</h3>
+  <ul><li><b>Bugün aranan:</b> kaç öğrenciyi aradığınız ve kaçıyla konuştuğunuz.</li><li><b>Bugünkü görevler:</b> bugünün görevlerinin yüzde kaçı yapıldı.</li><li><b>Bu hafta çalışma:</b> öğrencilerin bu hafta toplam çalışma saati ve çözdüğü soru.</li><li><b>Aranacak veli:</b> arama zamanı gelmiş veli sayısı. Dokununca liste açılır.</li><li><b>Geciken ödeme:</b> ödemesi geçmiş öğrenci sayısı ve toplam tutar.</li></ul>
+  <h3>Arama turu (her gün)</h3>
+  ${KS(['<b>Arama turunu başlat</b>\'a basın. Bugün henüz aranmamış ilk öğrencinin penceresi açılır.','Telefon numarasına dokunarak arayın. Yeşil <b>WhatsApp</b> düğmesi öğrenciyle WhatsApp yazışmasını açar.','<b>Arama durumu</b>nu seçin: '+KB('ok','Konuşuldu')+' '+KB('bad','Açmadı')+' '+KB('warn','Meşgul')+' '+KB('bad','Telefon kapalı')+' '+KB('acc','Mesaj atıldı')+' '+KB('','Aranamadı (izin/hasta)'),'O günün görevlerini tek tek işaretleyin: <b>Yaptı</b>, <b>Kısmen</b> veya <b>Yapmadı</b>. Dünden işaretlenmemiş görevler varsa altta ayrıca listelenir.','<b>Çalışma süresi (saat)</b> ve <b>Çözülen soru</b> sayısını yazın. 4,5 saat için 4.5 yazabilirsiniz.','<b>Motivasyon</b>\'u 1 ile 5 arasında seçin ve görüşme notunuzu yazın.','<b>Kaydet ve sonraki</b> ile bir sonraki öğrenciye geçin. Son öğrencide yalnızca <b>Kaydet</b> görünür.'])}
+  <p>Tek bir öğrenciyi aramak için listede adının yanındaki <b>Ara</b> düğmesine basın. Pencerenin üstündeki <b>Dün / Bugün</b> seçimiyle dün akşamki görüşmeyi de sonradan girebilirsiniz.</p>
+  <h3>Dikkat edilecekler</h3>
+  <p>Sağdaki listede programın sizin yerinize fark ettikleri durur. Her uyarı nedenini yazar ve yanındaki düğme sizi ilgili ekrana götürür:</p>
+  <ul><li>Bu haftanın programı hazırlanmamış öğrenciler</li><li>Arka arkaya iki ve daha fazla aramada ulaşılamayanlar (veliyi aramanız önerilir)</li><li>Dün görevlerinin yarısından azını yapanlar</li><li>Veli araması zamanı gelenler</li><li>Ödemesi gecikenler</li><li>Son denemesinde 5 netten fazla düşenler</li><li>3 haftadır deneme girilmeyenler</li><li>Denemelerde aynı konudan tekrar tekrar yanlış yapanlar</li></ul>`],
+ ['whatsapp','Toplu WhatsApp mesajı',`
+  <p>Hasta olduğunuz veya arayamadığınız günlerde seçtiğiniz öğrencilere ya da velilere kişiye özel mesaj gönderirsiniz.</p>
+  ${KS(['Bugün ekranında yeşil <b>Toplu WhatsApp</b> düğmesine basın.','Üstten <b>Öğrencilere</b> veya <b>Velilere</b>\'yi seçin.','Bir <b>şablon</b> seçin (örneğin “Bugün arayamıyorum”). Mesaj kutusunda isterseniz değişiklik yapın.','Kişileri seçin. <b>Bugün aranmayanlar</b> düğmesi o gün henüz aranmamış herkesi seçer; <b>Tümünü seç</b> ve <b>Temizle</b> de vardır.','Aşağıdaki listede her kişinin yanındaki <b>WhatsApp\'ta aç</b> düğmesine sırayla basın. WhatsApp o kişinin mesajı yazılmış hâlde açılır; gönder tuşuna siz basarsınız.','Programa geri dönüp sıradaki kişiye geçin. Gönderdikleriniz yeşil “Gönderildi” olarak işaretlenir.'])}
+  <p>Mesajdaki süslü parantezli alanlar her kişi için ayrı doldurulur: <b>{ad}</b> öğrencinin adı, <b>{veli}</b> veli adı, <b>{bugun_program}</b> o öğrencinin bugünkü görevleri ve notları, <b>{haftalik_rapor}</b> hazır haftalık veli raporu, <b>{geciken_tutar}</b> ve <b>{geciken_aylar}</b> ödeme bilgisi, <b>{sinav_gun}</b> sınava kalan gün, <b>{koc}</b> adınız.</p>
+  <p>“Gönderdiklerimi … olarak yaz” kutusu işaretliyse, öğrencilere gönderilen mesaj o günün arama kaydına <b>Mesaj atıldı</b> olarak, velilere gönderilen mesaj veli görüşmelerine işlenir.</p>
+  <p class="small muted">WhatsApp düğmesi yerine “Telefon ekle” görünüyorsa o kişinin telefonu kayıtlı değildir. Numarayı 05xx xxx xx xx şeklinde girin.</p>`],
+ ['izleme','Genel izleme',`
+  <p>Bütün öğrencilerin bir haftasını tek tabloda gösterir. Okla önceki haftalara geçebilirsiniz.</p>
+  <ul><li>Her gün hücresinin <b>üstündeki nokta</b> arama durumudur: yeşil konuşuldu, kırmızı açmadı veya kapalı, turuncu meşgul, mavi mesaj atıldı, gri aranmadı.</li><li><b>Ortadaki yüzde</b> o günün görev tamamlama oranıdır. Hücre rengi yeşilse %80 ve üstü, sarıysa %50–80, kırmızıysa %50'nin altıdır.</li><li><b>Alttaki sayı</b> o günkü çalışma saatidir.</li><li>Bir hücreye dokunursanız o günün arama kaydı açılır.</li><li>Sağdaki sütunlar haftalık görev oranı, toplam saat, soru, son deneme neti, veli araması ve ödeme durumudur.</li></ul>
+  <p>Tablonun altında öğrencilerin haftalık çalışma saatleri ve soru sayıları sıralı grafik olarak durur.</p>`],
+ ['ogrenci','Öğrenciler ve öğrenci sayfası',`
+  <h3>Öğrenci eklemek ve düzenlemek</h3>
+  ${KS(['<b>Öğrenciler</b> ekranında <b>Yeni öğrenci</b>\'ye basın.','Ad soyad, sınıf ve <b>hedef sınavı</b> seçin (LGS, YKS Sayısal, Eşit Ağırlık, Sözel, Dil). Konu listesi, ders seçenekleri ve deneme türleri bu seçime göre gelir.','Hedef okul/bölüm ve hedef netleri yazın; deneme grafiklerinde hedef çizgisi olarak görünür.','Öğrenci ve veli telefonlarını, veli adını, <b>velinin kaç günde bir aranacağını</b>, aylık ücreti ve ödeme gününü girin.','<b>Kaydet</b>\'e basın.'])}
+  <p>Mevcut bir öğrencinin bilgisini değiştirmek için sayfasındaki <b>Düzenle</b> düğmesine basın. Öğrenci listesinden yüklenen 11, 12 ve mezun öğrenciler şimdilik <b>YKS-SAY</b> olarak geldi; Eşit Ağırlık veya Sözel olanları buradan düzeltin.</p>
+  <p>Ayrılan bir öğrenciyi silmek yerine <b>Durum: Pasif</b> yapın. Geçmiş kayıtları durur, listelerde ve ödeme takibinde görünmez. <b>Sil</b> düğmesi öğrenciyi ve bütün kayıtlarını kalıcı olarak siler.</p>
+  <h3>Öğrenci sayfası</h3>
+  <p>Öğrenciler ekranında bir karta dokununca öğrencinin sayfası açılır. Üstte Ara, Veli, Veli raporu ve Düzenle düğmeleri, altında sekmeler vardır:</p>
+  <ul><li><b>Özet:</b> bu haftaki tamamlama, çalışma saati, arama sayısı, son deneme, veli ve ödeme durumu; hedefe kalan net; son 12 haftanın çalışma saati, soru ve tamamlama grafikleri; derslere göre tamamlama; en çok yanlış yapılan konular; son görüşmeler.</li><li><b>Haftalık program:</b> öğrencinin programı (Program bölümüne bakın).</li><li><b>Aramalar:</b> son 30 günün arama sonuçları ve bütün görüşme notları.</li><li><b>Denemeler, Konular, Kaynaklar, Veli, Ödemeler:</b> aşağıdaki bölümlerde anlatıldı.</li></ul>`],
+ ['program','Haftalık program',`
+  <p><b>Program</b> ekranında üstten öğrenciyi seçin. Oklarla haftalar arasında geçersiniz; <b>Bu hafta</b> düğmesi bugünün haftasına döner. Bugünün sütunu mavi çerçevelidir.</p>
+  <h3>Görev eklemek</h3>
+  ${KS(['Günün altındaki <b>+ Görev</b>\'e basın.','<b>Ders</b>i yazın veya listeden seçin.','<b>Not</b> kutusuna istediğinizi yazın, örneğin “Kitabın 210–220. sayfaları arası, yanlışları işaretle”. Not, programda ve öğrenciye giden görselde sarı kutu içinde görünür.','İsterseniz <b>Konu / kaynak</b>, <b>Miktar</b> ve <b>Birim</b> (soru, test, sayfa, dk, konu, deneme) girin.','Aynı görevi başka günlere de koymak için alttaki gün düğmelerini seçin. Örneğin her gün 20 paragraf için bütün günleri işaretleyin.','<b>Kaydet</b>.'])}
+  <p>Bir görevi değiştirmek veya silmek için görevin yazısına dokunun. Öğrencinin eksik ve tekrar gereken konuları pencerenin üstünde düğme olarak çıkar; dokununca ders ve konu kendiliğinden dolar.</p>
+  <h3>Görevleri işaretlemek</h3>
+  <p>Görevin sağındaki yuvarlağa her dokunuşta durum değişir: boş → ${KB('ok','Yaptı')} → ${KB('warn','Kısmen')} → ${KB('bad','Yapmadı')} → boş. Gün başlığındaki çubuk o günün tamamlama oranıdır, telefon simgesi o günün arama kaydını açar.</p>
+  <h3>Programı hızlı hazırlamak</h3>
+  <ul><li><b>Geçen haftadan kopyala:</b> geçen haftanın görevlerini notlarıyla birlikte bu haftaya boş olarak taşır.</li><li><b>Şablon:</b> iyi işleyen bir haftayı ad vererek kaydedin (“8. sınıf normal hafta” gibi). Sonra bir veya birden fazla öğrenci seçip <b>Uygula</b> deyin. “Mevcut görevlere ekle” veya “Görevlerin yerine koy” seçilebilir.</li></ul>
+  <h3>Görseller ve notlar</h3>
+  <ul><li><b>Görsel ekle:</b> hazırladığınız tablonun veya kitap sayfasının fotoğrafını o haftanın programına ekler.</li><li><b>Öğrenciye not / haftalık hedef:</b> program görselinin altında sarı kutuda görünür.</li><li><b>Hafta sonu değerlendirmesi:</b> yalnızca sizin içindir; veli raporunda “Değerlendirmem” satırı olarak kullanılır.</li><li><b>Ders bazında haftalık tablo:</b> her ders için planlanan ve yapılan miktarı gösterir.</li></ul>
+  <h3>Programı öğrenciye göndermek</h3>
+  ${KS(['<b>Programı görsel olarak al</b>\'a basın. Haftalık program düzenli bir resim hâlinde açılır.','<b>Paylaş / WhatsApp\'a gönder</b>\'e basın ve WhatsApp\'ta öğrenciyi seçin. Aynı menüden Fotoğraflar\'a da kaydedebilirsiniz.'])}`],
+ ['deneme','Denemeler ve hata analizi',`
+  <h3>Deneme girmek</h3>
+  ${KS(['<b>Denemeler</b> ekranında öğrenciyi seçip <b>Deneme ekle</b>\'ye basın.','Sınav türünü (TYT, AYT Sayısal/EA/Sözel, LGS), tarihi ve deneme adını girin.','Her ders için <b>doğru</b> ve <b>yanlış</b> sayılarını yazın. Netler kendiliğinden hesaplanır (YKS\'de 4 yanlış, LGS\'de 3 yanlış 1 doğruyu götürür). Doğru + yanlış soru sayısını geçerse rakam kırmızı olur.','<b>Yanlış veya boş yapılan konular</b>\'a konuyu yazın veya listeden seçin, yanına kaç soru olduğunu yazıp <b>Ekle</b>\'ye basın. Her konu için tekrarlayın.','Değerlendirme notunuzu yazıp <b>Kaydet</b>.'])}
+  <h3>Analizi okumak</h3>
+  <ul><li><b>Toplam net gelişimi:</b> denemelerin net grafiği. Yeşil kesik çizgi hedef nettir.</li><li><b>Ders bazında net:</b> son 3 denemenin ortalaması ve soru sayısına oranı.</li><li><b>En çok yanlış yapılan konular:</b> son 5 denemede hangi konudan kaç yanlış çıktığı. Yanındaki <b>Programa</b> düğmesi o konuyu bugüne görev olarak ekler.</li><li><b>Ders bazında yanlış sayısı:</b> en çok yanlışın hangi derste olduğu.</li><li><b>Değerlendirme:</b> güçlü ve zayıf ders, net değişimi, hedefe kalan fark ve sık yanlış yapılan konular kendiliğinden yazılır.</li><li><b>Tüm denemeler tablosu:</b> her denemenin ders netleri ve yanlış konuları. Kalem simgesiyle düzenlenir.</li></ul>
+  <p>Ekranın en üstündeki <b>En çok hata yapılan konular</b> kartı <b>bütün öğrencileri</b> birlikte gösterir; birden çok öğrencide çıkan konular için toplu konu tekrarı planlayabilirsiniz.</p>`],
+ ['konu','Konu takibi ve kaynaklar',`
+  <h3>Konular sekmesi</h3>
+  <p>Öğrencinin hedef sınavına göre LGS veya YKS konu listesi hazır gelir. Bir konuya dokundukça durumu değişir: ${KB('ok','Bitti')} → ${KB('warn','Tekrar lazım')} → ${KB('bad','Eksik')} → boş. Konunun yanındaki kırmızı rakam son 5 denemede o konudan yapılan yanlış sayısıdır.</p>
+  <ul><li><b>Eksik ve tekrar</b> filtresi yalnızca çalışılması gereken konuları gösterir.</li><li>Listede olmayan bir konuyu dersin yanındaki <b>+ Konu</b> ile ekleyebilirsiniz.</li><li>Eksik ve tekrar işaretli konular program hazırlarken hazır düğme olarak çıkar.</li></ul>
+  <h3>Kaynaklar sekmesi</h3>
+  ${KS(['<b>Kaynak ekle</b>\'ye basıp kitabın adını, dersini, birimini (sayfa, test, ünite, soru) ve toplam miktarını girin.','Öğrenci ilerledikçe kitabın yanındaki kutuya kaldığı yeri yazın. İlerleme çubuğu ve yüzde kendiliğinden güncellenir.'])}`],
+ ['veli','Veli takibi ve veli raporu',`
+  <h3>Veli aramaları</h3>
+  <p>Her öğrencinin velisi, öğrenci bilgilerinde yazan aralıkla (varsayılan 14 gün) aranacak şekilde takip edilir. Zamanı gelen veliler Bugün ekranındaki <b>Aranacak veli</b> kartında ve uyarılarda görünür.</p>
+  ${KS(['Öğrenci sayfasında <b>Veli</b> düğmesine veya uyarıdaki <b>Veliyi ara</b>\'ya basın.','Numaraya dokunarak arayın.','Görüşme durumunu seçin, notunuzu yazın ve <b>Kaydet</b>\'e basın. Bir sonraki arama tarihi kendiliğinden hesaplanır.'])}
+  <p>Bütün veli görüşmeleri öğrenci sayfasındaki <b>Veli</b> sekmesinde tarih sırasıyla durur.</p>
+  <h3>Haftalık veli raporu</h3>
+  ${KS(['Öğrenci sayfasında <b>Veli raporu</b>\'na basın.','<b>Geçen hafta</b> veya <b>Bu hafta</b>\'yı seçin. Görev tamamlama, çalışma saati, soru sayısı, görüşmeler, motivasyon, deneme sonuçları, hedefe kalan net, sınava kalan gün ve odaklanılacak konular hazır metin olarak yazılır.','<b>WhatsApp\'ta veliye gönder</b>\'e basın; mesaj velinin WhatsApp yazışmasında hazır açılır. Ya da <b>Kopyala</b> deyip istediğiniz yere yapıştırın.'])}
+  <p>Rapordaki “Değerlendirmem” satırı, Program ekranındaki <b>Hafta sonu değerlendirmesi</b> kutusundan gelir. Raporu birçok veliye birden göndermek için Toplu WhatsApp'ta <b>Velilere</b> ve “Haftalık bilgilendirme” şablonunu seçin.</p>`],
+ ['odeme','Ödemeler',`
+  <h3>Ödeme kaydetmek</h3>
+  ${KS(['<b>Ödemeler</b> ekranında tablodan öğrencinin ilgili ayına dokunun ya da <b>Ödeme al</b>\'a basın.','<b>Getirdiği tarih</b>, <b>tutar</b>, <b>hangi ayın ücreti</b> olduğu ve ödeme yöntemini seçin. İsterseniz not ekleyin (“kalanı ay sonunda” gibi).','<b>Kaydet</b>. Ödeme, ödeme defterine ve öğrencinin ödeme geçmişine işlenir.'])}
+  <h3>Tabloyu okumak</h3>
+  <p>${KB('ok','Yeşil')} ödendi (hücrede ödemenin getirildiği tarih yazar), ${KB('warn','Sarı')} eksik ödendi, ${KB('bad','Kırmızı')} ödeme günü geçti, gri henüz zamanı gelmedi. Aylık ücreti girilmemiş öğrencilerde ay takibi yapılmaz.</p>
+  <p>Üstteki kartlar bu ay beklenen ve tahsil edilen tutarı, kalan tutarı, toplam gecikmeyi ve yıllık tahsilatı gösterir. <b>Ödeme defteri</b> bütün ödemeleri getirildiği tarihe göre sıralar. Gecikmiş bir ödeme için öğrencinin Ödemeler sekmesindeki <b>Hatırlat</b> düğmesi veliye kibar bir WhatsApp mesajı hazırlar.</p>`],
+ ['rapor','Raporlar',`
+  <p><b>Diğer → Raporlar</b>'dan açılır. Üstten <b>Hafta</b>, <b>Ay</b> veya <b>Yıl</b> seçip oklarla dönem değiştirirsiniz.</p>
+  <ul><li>Dönemin görev tamamlama oranı, toplam çalışma saati, soru sayısı, öğrenci ve veli aramaları, deneme sayısı ve tahsilatı</li><li>Öğrencilere göre tamamlama ve çalışma süresi grafikleri</li><li>Dönemin en çok hata yapılan konuları</li><li>Her öğrenci için ayrıntılı tablo. Bir satıra dokununca öğrencinin sayfası açılır.</li></ul>
+  <p><b>Excel (CSV)</b> düğmesi tabloyu Excel'de açılabilen bir dosya olarak paylaşır.</p>`],
+ ['ayar','Ayarlar ve mesaj şablonları',`
+  <ul><li><b>WhatsApp mesaj şablonları:</b> hazır şablonları kalem simgesiyle düzenleyebilir, <b>Yeni şablon</b> ile kendinizinkini ekleyebilirsiniz. Her şablonun öğrenciye mi veliye mi olduğunu seçin.</li><li><b>Sınav tarihleri:</b> geri sayımlar buna göre hesaplanır. Varsayılan tarihler tahminidir; ÖSYM ve MEB takvimi açıklanınca düzeltin.</li><li><b>Veli arama aralığı:</b> yeni öğrenciler için varsayılan gün sayısı. Her öğrenci için ayrıca öğrenci bilgilerinden değiştirilebilir.</li></ul>`],
+ ['yedek','Yedek ve veri güvenliği',`
+  <div class="bk">${ic('alert')}<div class="grow"><b>En önemli kural:</b> Bütün kayıtlar yalnızca bu iPad'de duruyor. iPad kaybolur, bozulur veya sıfırlanırsa yedek yoksa kayıtlar geri gelmez. <b>Haftada bir yedek alın.</b></div></div>
+  <h3>Yedek almak</h3>
+  ${KS(['<b>Diğer → Ayarlar → Yedek indir</b>\'e basın (Bugün ekranındaki hatırlatmadan da olur).','Açılan paylaşım menüsünden <b>Dosyalar\'a Kaydet</b>\'i seçin ya da dosyayı kendinize WhatsApp\'tan gönderin. Görseller de yedeğe dahildir.'])}
+  <p>7 günden uzun süre yedek alınmazsa Bugün ekranının üstünde sarı bir hatırlatma çıkar.</p>
+  <h3>Yedekten geri yüklemek (yeni iPad veya kayıp veri)</h3>
+  ${KS(['Yeni iPad\'de programı Safari\'den açıp <b>Ana Ekrana Ekle</b> ile kurun.','Ana ekrandaki simgeden açın, <b>Diğer → Ayarlar → Yedekten geri yükle</b>\'ye basın ve son yedek dosyasını seçin.'])}`],
+ ['rutin','Önerilen çalışma düzeni',`
+  <ul><li><b>Her gün:</b> Bugün ekranında <i>Arama turunu başlat</i>; durum, görevler, saat, soru, motivasyon ve not. Arayamadığınız gün <i>Toplu WhatsApp → Bugün aranmayanlar → “Bugün arayamıyorum”</i>.</li><li><b>Haftada bir (örneğin Pazar):</b> Program ekranında geçen haftayı kopyalayın veya şablon uygulayın, eksik konulardan görev ekleyin, programı görsel olarak öğrencilere gönderin. Hafta sonu değerlendirmesini yazıp veli raporlarını gönderin. Yedek alın.</li><li><b>Deneme sonrası:</b> doğru-yanlışları ve yanlış konuları girin, en çok yanlış çıkan konuları programa ekleyin, Konular sekmesinde eksikleri işaretleyin.</li><li><b>Veli araması:</b> Bugün ekranındaki <i>Aranacak veli</i> kartını takip edin.</li><li><b>Ay başında:</b> Ödemeler tablosundaki kırmızı ayları kontrol edin, gerekirse <i>Hatırlat</i> ile mesaj gönderin.</li></ul>`],
+ ['sss','Sık sorulan sorular',`
+  <h3>Öğrencilerim görünmüyor</h3><p>Programı büyük ihtimalle Safari'den açtınız. Kapatıp ana ekrandaki <b>Esra Hoca'nız</b> simgesinden açın.</p>
+  <h3>Yeni bir özellik eklendi ama göremiyorum</h3><p>İnternete bağlıyken programı açın, sonra tamamen kapatıp tekrar açın (ekranın altından yukarı kaydırıp programı yukarı atın). Kayıtlarınız silinmez.</p>
+  <h3>WhatsApp düğmesi çıkmıyor</h3><p>O kişinin telefonu kayıtlı değil veya eksik. Öğrenci bilgilerinden numarayı 05xx xxx xx xx şeklinde girin.</p>
+  <h3>Yanlışlıkla bir şey sildim</h3><p>Silinen kayıt geri alınamaz. Son yedekten <b>Yedekten geri yükle</b> ile döndürebilirsiniz; yedekteki kayıtlar geri gelir, yedekten sonra girdikleriniz korunur.</p>
+  <h3>İnternet yokken çalışır mı?</h3><p>Evet. Bütün işlemler internetsiz yapılır. Yalnızca WhatsApp mesajlarını göndermek için internet gerekir.</p>
+  <h3>Program başka bir yere bilgi gönderiyor mu?</h3><p>Hayır. Öğrenci bilgileri hiçbir yere gönderilmez; yalnızca siz WhatsApp'tan mesaj gönderdiğinizde o mesaj gider.</p>`]
+];
+function vKilavuz(){
+  return `<div class="head"><div><div class="eyebrow">${APP}</div><h1>Kullanım kılavuzu</h1><p>Programın bütün ekranları adım adım. Konuya gitmek için aşağıdan seçin.</p></div><button class="btn" data-a="nav" data-v="ayar">${ic('gear','s')}Ayarlar</button></div>
+  <div class="card"><div class="tchips">${KILAVUZ.map(([k,t],i)=>`<button class="tc" data-a="kGo" data-v="${k}">${i+1}. ${t}</button>`).join('')}</div></div>
+  ${KILAVUZ.map(([k,t,b],i)=>`<div class="card kil" id="k-${k}"><h2 style="margin-bottom:10px">${i+1}. ${t}</h2>${b}</div>`).join('')}`;
+}
+
 /* ============ AYARLAR ============ */
 function vAyar(){
   const n=Object.keys(S.students).length,demo=Object.values(S.students).filter(s=>s.demo).length;const st=SET();const tps=msgTpls();
-  return `<div class="head"><div><h1>Ayarlar</h1><p>Mesaj şablonları, sınav tarihleri, yedek ve örnek veriler</p></div><button class="btn" data-a="nav" data-v="rapor">${ic('report','s')}Raporlar</button></div>
+  return `<div class="head"><div><h1>Ayarlar</h1><p>Mesaj şablonları, sınav tarihleri, yedek ve örnek veriler</p></div><div class="row"><button class="btn pri" data-a="nav" data-v="kilavuz">${ic('book','s')}Kullanım kılavuzu</button><button class="btn" data-a="nav" data-v="rapor">${ic('report','s')}Raporlar</button></div></div>
   <div class="card"><div class="ctitle"><div><h3>WhatsApp mesaj şablonları</h3><div class="muted small">Toplu mesajda ve veli bilgilendirmesinde kullanılır. Süslü parantezli alanlar kişiye göre doldurulur.</div></div><button class="btn sm pri" data-a="tplMsgForm">${ic('plus','s')}Yeni şablon</button></div>
    <div style="display:flex;flex-direction:column;gap:8px">${tps.map(t=>`<div class="alert ${t.aud==='par'?'ok':'info'}"><span class="sev"></span><div class="grow"><div class="t">${esc(t.name)} <span class="chip">${t.aud==='par'?'Veli':'Öğrenci'}</span></div><div class="r" style="white-space:pre-wrap">${esc(t.text.slice(0,140))}${t.text.length>140?'…':''}</div></div><button class="ib" data-a="tplMsgForm" data-id="${t.id}" aria-label="Düzenle">${ic('edit','s')}</button></div>`).join('')}</div></div>
   <div class="grid g2">
@@ -1447,6 +1563,7 @@ const cur=()=>S.students[ui.sid];
 const saveS=s=>put('students',s.id,clone(s));
 const A={
   nav(d){ui.view=d.v;closeModal();window.scrollTo(0,0);render()},
+  kGo(d){const el=document.getElementById('k-'+d.v);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
   ov(d,el,e){if(e.target===el)closeModal()},
   close(){closeModal()},
   newStudent(){studentForm()},

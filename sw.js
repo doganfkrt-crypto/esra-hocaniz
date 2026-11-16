@@ -1,6 +1,6 @@
 // İnternet olmadan açılabilmesi için program dosyalarını iPad'de saklar.
 // Program güncellendiğinde SURUM değerini artırın.
-const SURUM = 'esra-hocaniz-v2';
+const SURUM = 'esra-hocaniz-v3';
 const DOSYALAR = ['./', './index.html', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
