@@ -278,6 +278,15 @@ textarea{resize:vertical;min-height:70px}
 .miniin label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .miniin input{width:84px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 9px;min-height:38px;text-align:center;font-size:15px;color:var(--ink)}
 @media (prefers-reduced-motion:no-preference){.meter i,.hbar .tr i{transition:width .4s ease}}
+#printArea{display:none}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  :root{padding:0!important}
+  html,body{background:#fff!important}
+  .app,#modal,#toast,nav{display:none!important}
+  #printArea{display:block!important}
+  #printArea img{display:block;max-width:100%;max-height:190mm;width:auto;height:auto;margin:0 auto}
+}
 html,body{margin:0}
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .bk{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--hl-soft);color:var(--ink);flex-wrap:wrap}
@@ -298,6 +307,7 @@ html,body{margin:0}
 </div>
 <div id="modal" hidden></div>
 <div id="toast" hidden></div>
+<div id="printArea"></div>
 <input type="file" id="fileImg" accept="image/*" hidden>
 <input type="file" id="fileJson" accept="application/json,.json" hidden>
 
@@ -364,6 +374,66 @@ const TOPICS={
 const TSETS={'LGS':['LGS'],'YKS-SAY':['TYT','AYT_SAY'],'YKS-EA':['TYT','AYT_EA'],'YKS-SÖZ':['TYT','AYT_SOZ'],'YKS-DİL':['TYT'],'Ara sınıf':['TYT']};
 const TST={b:'Bitti',t:'Tekrar lazım',e:'Eksik'};
 const BIRIM=['soru','test','sayfa','dk','konu','deneme'];
+// Haftanın motivasyon cümleleri: her hafta (ve her öğrenci için) sırayla değişir
+const SOZLER=[
+ 'Bugün çözdüğün her soru, sınav günü seni bekleyen bir doğru cevap.',
+ 'Büyük hedefler, küçük ama her gün atılan adımlarla gerçekleşir.',
+ 'Yorulduğunda dur, dinlen; ama asla vazgeçme.',
+ 'Başarı bir anda gelmez; her gün biraz daha yaklaşırsın.',
+ 'Disiplin, motivasyonun bittiği yerde seni ayakta tutar.',
+ 'Bugün zor gelen konu, yarın en kolay sorun olacak.',
+ 'Kendinle yarış; dünkü hâlinden bir adım ileride ol.',
+ 'Yanlış yapmaktan korkma; her yanlış sana bir şey öğretir.',
+ 'Hayalindeki okul, bu haftaki emeğini bekliyor.',
+ 'Düzenli çalışan, sınavda şansa ihtiyaç duymaz.',
+ 'Bir saat odaklanmak, üç saat dağınık çalışmaktan değerlidir.',
+ 'Pes etmek istediğinde neden başladığını hatırla.',
+ 'Her deneme, sınav gününe yapılmış bir provadır.',
+ 'Kendine inan; bu yolu sen seçtin ve sonuna kadar gidebilirsin.',
+ 'Zor günler, güçlü öğrenciler yetiştirir.',
+ 'Az ama her gün; işte başarının sırrı bu.',
+ 'Bugün ertelediğin iş, yarın iki kat ağır gelir.',
+ 'Hedefini her sabah hatırla, her akşam bir adım daha yaklaş.',
+ 'Emek hiçbir zaman kaybolmaz; bir gün mutlaka karşılığını verir.',
+ 'Telefonu kenara koy, geleceğini eline al.',
+ 'Başkalarıyla değil, dünkü kendinle karşılaştır.',
+ 'Küçük ilerlemeler de ilerlemedir; kendini takdir et.',
+ 'Yapabileceğinin en iyisini yap, gerisini zamana bırak.',
+ 'Her yeni hafta, yeniden başlamak için bir fırsat.',
+ 'Çalışmak bugünü zorlaştırır ama yarını kolaylaştırır.',
+ 'Sabır ve düzen, en zor konuyu bile çözer.',
+ 'Sınav bir gün; hazırlık her gün.',
+ 'Odaklan, planla, uygula: bu hafta senin haftan.',
+ 'Başaranlar da yoruldu; onlar sadece devam ettiler.',
+ 'İstikrar, yetenekten daha uzağa taşır.',
+ 'Bir konuyu gerçekten anlamak, on soruyu ezberlemekten iyidir.',
+ 'Kendine verdiğin sözleri tut; en önemli takipçin sensin.',
+ 'Bugün yaptığın tekrar, sınavda hatırladığın bilgi olacak.',
+ 'Hedefe giden yol düz değildir; önemli olan yürümeye devam etmek.',
+ 'Yavaş ilerlemekten korkma, yerinde saymaktan kork.',
+ 'Her çözdüğün paragraf, okuma hızına eklenen bir saniye.',
+ 'Planına sadık kal; sonuçlar kendiliğinden gelecek.',
+ 'Bugün kendine bir iyilik yap: programını eksiksiz tamamla.',
+ 'Zorlandığın an, öğrenmenin başladığı andır.',
+ 'Hayaller ertelenir; çalışma ertelenmez.',
+ 'Bir hafta düzenli çalış, farkı kendin göreceksin.',
+ 'Senin yerine kimse çalışamaz; ama herkes seninle gurur duyabilir.',
+ 'Hatalarını not al; en iyi öğretmenin onlar.',
+ 'Başarı, her gün tekrarlanan küçük çabaların toplamıdır.',
+ 'Bugün biraz daha fazla; yarın biraz daha iyi.',
+ 'Kararlılığın, karşına çıkan her engelden büyük.',
+ 'Dinlenmek de çalışmanın bir parçası; ama sadece bir parçası.',
+ 'Netlerin, emeğinin aynasıdır.',
+ 'Kendine güven; geldiğin yol gideceğin yolun kanıtı.',
+ 'Odaklandığın şey büyür; bu hafta hedefine odaklan.',
+ 'Her sabah yeni bir başlangıç, her akşam küçük bir zafer.',
+ 'Sen hazırlan; fırsat seni bulacak.'
+];
+function haftaSozu(s,p,wk){
+  if(p&&p.motto)return p.motto;
+  const n=Math.floor(pkey(wk).getTime()/(7*864e5));
+  return SOZLER[((n+hash(s.id)+(p&&p.mottoShift||0))%SOZLER.length+SOZLER.length)%SOZLER.length];
+}
 const PAL=['#2f52cf','#17905f','#c2410c','#8b3fd1','#0e7490','#be185d','#a16207','#4d7c0f','#b91c1c','#4338ca'];
 // hazır mesaj şablonları (Ayarlar'dan düzenlenebilir)
 const DEF_TPL=[
@@ -1009,7 +1079,7 @@ function vProgram(){
 function programEditor(s){
   const wk=ui.week;const p=prog(s.id,wk);const tk=dkey(today());const w=weekStats(s.id,wk);
   const nav=`<div class="weeknav"><button class="ib" data-a="wk" data-v="-1" aria-label="Önceki hafta">${ic('left')}</button><span class="wl">${wLabel(wk)}</span><button class="ib" data-a="wk" data-v="1" aria-label="Sonraki hafta">${ic('right')}</button>${wk!==wkey(today())?`<button class="btn sm" data-a="wk" data-v="0">Bu hafta</button>`:''}</div>`;
-  const tools=`<div class="row"><button class="btn sm" data-a="copyWeek">${ic('copy','s')}Geçen haftadan kopyala</button><button class="btn sm" data-a="tplOpen">${ic('tpl','s')}Şablon</button><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button><button class="btn sm pri" data-a="exportPng">${ic('dl','s')}Programı görsel olarak al</button></div>`;
+  const tools=`<div class="row"><button class="btn sm" data-a="copyWeek">${ic('copy','s')}Geçen haftadan kopyala</button><button class="btn sm" data-a="tplOpen">${ic('tpl','s')}Şablon</button><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button><button class="btn sm" data-a="printProg">${ic('report','s')}Yazdır</button><button class="btn sm pri" data-a="exportPng">${ic('dl','s')}Programı görsel olarak al</button></div>`;
   const days=Array.from({length:7},(_,i)=>{
     const d=addD(pkey(wk),i);const day=p?p.days[i]:{tasks:[],call:null};const sc=score(day.tasks);const c=day.call;const qh=dayQH(day);
     return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[i]}</b> <small>${fmtDs(d)}</small></div><button class="callmark ${c?callMk(c.st):''}" data-a="call" data-id="${s.id}" data-d="${dkey(d)}" title="${c?callLabel(c.st):'Arama kaydı yok'}">${ic('phone','s')}</button></div>${sc.t?`<div class="meter"><i style="width:${(sc.p||0)*100}%;background:${sc.p>=.8?'var(--ok)':sc.p>=.5?'var(--hl)':'var(--bad)'}"></i></div>`:''}${qh.q!=null||qh.h!=null?`<div class="dq num">${qh.h!=null?fmtN(qh.h)+' sa':''}${qh.q!=null&&qh.h!=null?' · ':''}${qh.q!=null?qh.q+' soru':''}</div>`:''}</div>
@@ -1025,7 +1095,9 @@ function programEditor(s){
    <div class="card"><div class="ctitle"><h3>Ders bazında haftalık tablo</h3></div>${subRows.length?`<div class="tw"><table class="t"><thead><tr><th>Ders</th><th class="n">Görev</th><th class="n">Planlanan</th><th class="n">Yapılan</th><th class="n">Oran</th></tr></thead><tbody>${subRows.map(([k,b])=>`<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap"><i style="width:10px;height:10px;border-radius:3px;background:${subjColor(k)};display:inline-block;flex:none"></i>${esc(k)}</span></td><td class="n">${b.n}</td><td class="n">${b.plan||'–'} ${b.plan?esc(b.unit||''):''}</td><td class="n">${b.done?Math.round(b.done):'–'}</td><td class="n"><b>${pct((b.y+.5*b.k)/b.n)}</b></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty small">Bu hafta için görev girilmemiş. Günlerin altındaki “Görev” düğmesiyle ekleyin, geçen haftayı kopyalayın veya bir şablon uygulayın.</div>'}</div>
    <div class="card"><div class="ctitle"><h3>Haftanın notları</h3></div><div class="fg" style="grid-template-columns:1fr">
      <label class="f">Öğrenciye not / haftalık hedef (görselde ve öğrenci ekranında görünür)<textarea id="pNote" data-ch="pNote" placeholder="Örn. Bu hafta paragraf hızına odaklanıyoruz. Her gün 20 paragraf sorusu.">${esc(p&&p.note||'')}</textarea></label>
-     <label class="f">Hafta sonu değerlendirmesi (veli raporunda “koç notu” olarak kullanılır)<textarea id="pEval" data-ch="pEval" placeholder="Hafta nasıl geçti, sonraki haftaya ne taşınacak…">${esc(p&&p.eval||'')}</textarea></label></div></div>
+     <label class="f">Hafta sonu değerlendirmesi (veli raporunda “koç notu” olarak kullanılır)<textarea id="pEval" data-ch="pEval" placeholder="Hafta nasıl geçti, sonraki haftaya ne taşınacak…">${esc(p&&p.eval||'')}</textarea></label>
+     <div class="bk" style="background:var(--accent-soft)"><div class="grow"><div class="sec" style="margin-bottom:4px;color:var(--accent)">HAFTANIN SÖZÜ · program görselinin altına yazılır</div><div style="font-style:italic;font-weight:600">“${esc(haftaSozu(s,p,wk))}”</div></div><button class="btn sm" data-a="sozDegis">${ic('right','s')}Başka cümle</button></div>
+     <label class="f">Kendi cümleniz (boş bırakılırsa her hafta otomatik seçilir)<input id="pMotto" data-ch="pMotto" value="${esc(p&&p.motto||'')}" placeholder="Örn. Bu hafta senin haftan, hadi göster kendini!"></label></div></div>
   </div>
   ${weak.length?`<div class="card"><div class="ctitle"><h3>Eksik ve tekrar gereken konular</h3><span class="muted small">Dokununca görev olarak eklenir</span></div><div class="tchips">${weak.map(w=>`<button class="tc ${w.v}" data-a="topicToProg" data-subj="${esc(w.subj)}" data-topic="${esc(w.topic)}">${ic('plus','s')}${esc(w.topic)} <span class="small" style="opacity:.75">${esc(w.subj)}</span></button>`).join('')}</div></div>`:''}
   <div class="card"><div class="ctitle"><h3>Programa eklenen görseller ve tablolar</h3><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button></div>${imgs.length?`<div class="gallery">${imgs.map(m=>`<div class="gimg"><img src="${m.data}" alt="${esc(m.cap||'Program görseli')}" data-a="viewImg" data-id="${m.id}"><div class="cap"><span>${esc(m.cap||'Görsel')}</span><button class="ib" style="width:30px;height:30px" data-a="delImg" data-id="${m.id}" aria-label="Sil">${ic('trash','s')}</button></div></div>`).join('')}</div>`:'<div class="empty small">Konu tablosu, kitap sayfası veya hazırladığınız çizelgelerin fotoğrafını ekleyebilirsiniz. Görseller bu haftanın programına bağlı kalır.</div>'}</div>`;
@@ -1071,7 +1143,8 @@ function drawProgram(s,wk){
   const bodyH=Math.max(260,...colH)+80;
   ctx.font=`400 26px ${F}`;const noteLines=p.note?wrapText(ctx,p.note,W-2*PAD-40):[];
   const ed=examDateFor(s);const cd=ed&&daysTo(ed.date)>=0?`${ed.name}'ye ${daysTo(ed.date)} gün`:'';
-  const H=PAD+150+bodyH+(noteLines.length?noteLines.length*36+96:0)+60;
+  const soz=haftaSozu(s,p,wk);ctx.font=`italic 600 30px ${FD}`;const sozLines=wrapText(ctx,'“'+soz+'”',W-2*PAD-120);const sozH=sozLines.length*42+78;
+  const H=PAD+150+bodyH+(noteLines.length?noteLines.length*36+96:0)+sozH+60;
   c.width=W;c.height=H;
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
   ctx.fillStyle=s.color||'#2f52cf';ctx.fillRect(0,0,W,14);
@@ -1098,7 +1171,11 @@ function drawProgram(s,wk){
     });
   });
   let y=y0+bodyH;
-  if(noteLines.length){ctx.fillStyle='#fdf1d2';roundRect(ctx,PAD,y,W-2*PAD,noteLines.length*36+60,14);ctx.fill();ctx.fillStyle='#7a5500';ctx.font=`700 24px ${F}`;ctx.fillText('Bu haftanın hedefi',PAD+22,y+38);ctx.fillStyle='#3b2a00';ctx.font=`400 26px ${F}`;noteLines.forEach((l,k)=>ctx.fillText(l,PAD+22,y+78+k*36))}
+  if(noteLines.length){ctx.fillStyle='#fdf1d2';roundRect(ctx,PAD,y,W-2*PAD,noteLines.length*36+60,14);ctx.fill();ctx.fillStyle='#7a5500';ctx.font=`700 24px ${F}`;ctx.fillText('Bu haftanın hedefi',PAD+22,y+38);ctx.fillStyle='#3b2a00';ctx.font=`400 26px ${F}`;noteLines.forEach((l,k)=>ctx.fillText(l,PAD+22,y+78+k*36));y+=noteLines.length*36+96}
+  // haftanın motivasyon cümlesi
+  ctx.textAlign='center';ctx.fillStyle=s.color||'#2f52cf';ctx.font=`700 18px ${F}`;ctx.fillText('HAFTANIN SÖZÜ',W/2,y+24);
+  ctx.fillStyle='#1c2236';ctx.font=`italic 600 30px ${FD}`;sozLines.forEach((l,k)=>ctx.fillText(l,W/2,y+66+k*42));
+  ctx.strokeStyle='#dde2ec';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W/2-60,y+sozLines.length*42+54);ctx.lineTo(W/2+60,y+sozLines.length*42+54);ctx.stroke();ctx.textAlign='left';
   ctx.fillStyle='#9aa2bb';ctx.font=`500 20px ${F}`;ctx.fillText('Yaptığın görevin kutusunu işaretle. Kolay gelsin!',PAD,H-28);
   ctx.font=`700 22px ${FD}`;ctx.fillStyle=s.color||'#2f52cf';const sig=`${APP} · ${COACH}`;ctx.fillText(sig,W-PAD-ctx.measureText(sig).width,H-28);
   return c;
@@ -1383,8 +1460,13 @@ const KILAVUZ=[
   <ul><li><b>Geçen haftadan kopyala:</b> geçen haftanın görevlerini notlarıyla birlikte bu haftaya boş olarak taşır.</li><li><b>Şablon:</b> iyi işleyen bir haftayı ad vererek kaydedin (“8. sınıf normal hafta” gibi). Sonra bir veya birden fazla öğrenci seçip <b>Uygula</b> deyin. “Mevcut görevlere ekle” veya “Görevlerin yerine koy” seçilebilir.</li></ul>
   <h3>Görseller ve notlar</h3>
   <ul><li><b>Görsel ekle:</b> hazırladığınız tablonun veya kitap sayfasının fotoğrafını o haftanın programına ekler.</li><li><b>Öğrenciye not / haftalık hedef:</b> program görselinin altında sarı kutuda görünür.</li><li><b>Hafta sonu değerlendirmesi:</b> yalnızca sizin içindir; veli raporunda “Değerlendirmem” satırı olarak kullanılır.</li><li><b>Ders bazında haftalık tablo:</b> her ders için planlanan ve yapılan miktarı gösterir.</li></ul>
+  <h3>Haftanın sözü</h3>
+  <p>Her öğrencinin program görselinin altına her hafta kendiliğinden bir motivasyon cümlesi yazılır. Cümle haftadan haftaya ve öğrenciden öğrenciye değişir. <b>Haftanın notları</b> kartında cümleyi görürsünüz:</p>
+  <ul><li><b>Başka cümle</b> düğmesi o hafta için sıradaki cümleye geçer.</li><li><b>Kendi cümleniz</b> kutusuna yazarsanız o hafta sizin cümleniz kullanılır. Kutuyu boşaltırsanız yeniden otomatik seçilir.</li></ul>
   <h3>Programı öğrenciye göndermek</h3>
-  ${KS(['<b>Programı görsel olarak al</b>\'a basın. Haftalık program düzenli bir resim hâlinde açılır.','<b>Paylaş / WhatsApp\'a gönder</b>\'e basın ve WhatsApp\'ta öğrenciyi seçin. Aynı menüden Fotoğraflar\'a da kaydedebilirsiniz.'])}`],
+  ${KS(['<b>Programı görsel olarak al</b>\'a basın. Haftalık program, altında haftanın sözüyle birlikte düzenli bir resim hâlinde açılır.','<b>Paylaş / WhatsApp\'a gönder</b>\'e basın ve WhatsApp\'ta öğrenciyi seçin. Aynı menüden Fotoğraflar\'a da kaydedebilirsiniz.'])}
+  <h3>Programı yazdırmak</h3>
+  ${KS(['Program ekranında (veya program görseli penceresinde) <b>Yazdır</b>\'a basın.','Açılan yazdırma ekranında yazıcınızı seçin. Program A4 yatay sayfaya sığacak şekilde basılır.','Yazdır düğmesi bir şey açmazsa: <b>Programı görsel olarak al → Paylaş</b> menüsünden <b>Yazdır</b>\'ı seçin.'])}`],
  ['deneme','Denemeler ve hata analizi',`
   <h3>Deneme girmek</h3>
   ${KS(['<b>Denemeler</b> ekranında öğrenciyi seçip <b>Deneme ekle</b>\'ye basın.','Sınav türünü (TYT, AYT Sayısal/EA/Sözel, LGS), tarihi ve deneme adını girin.','Her ders için <b>doğru</b> ve <b>yanlış</b> sayılarını yazın. Netler kendiliğinden hesaplanır (YKS\'de 4 yanlış, LGS\'de 3 yanlış 1 doğruyu götürür). Doğru + yanlış soru sayısını geçerse rakam kırmızı olur.','<b>Yanlış veya boş yapılan konular</b>\'a konuyu yazın veya listeden seçin, yanına kaç soru olduğunu yazıp <b>Ekle</b>\'ye basın. Her konu için tekrarlayın.','Değerlendirme notunuzu yazıp <b>Kaydet</b>.'])}
@@ -1563,6 +1645,14 @@ const cur=()=>S.students[ui.sid];
 const saveS=s=>put('students',s.id,clone(s));
 const A={
   nav(d){ui.view=d.v;closeModal();window.scrollTo(0,0);render()},
+  sozDegis(){const s=cur();const p=editProg(s.id,ui.week);if(p.motto){p.motto='';const m=$('#pMotto');if(m)m.value=''}else p.mottoShift=(p.mottoShift||0)+1;put('programs',pid(s.id,ui.week),p)},
+  printProg(){
+    const s=cur();if(!s)return;const url=drawProgram(s,ui.week).toDataURL('image/png');
+    $('#printArea').innerHTML=`<img src="${url}" alt="${esc(cleanName(s.name))} haftalık program">`;
+    if(typeof window.print!=='function'){toast('Yazdırmak için: Programı görsel olarak al → Paylaş → Yazdır');return}
+    const img=$('#printArea img');const go=()=>{try{window.print()}catch(e){toast('Yazdırmak için: Programı görsel olarak al → Paylaş → Yazdır')}};
+    if(img.complete)go();else{img.onload=go;img.onerror=go}
+  },
   kGo(d){const el=document.getElementById('k-'+d.v);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})},
   ov(d,el,e){if(e.target===el)closeModal()},
   close(){closeModal()},
@@ -1672,7 +1762,7 @@ const A={
   exportPng(){
     const s=cur();const c=drawProgram(s,ui.week);const url=c.toDataURL('image/png');
     ui.png={c,url,name:`${cleanName(s.name).replace(/[^\p{L}\p{N} ]/gu,'').trim()} - Program ${ui.week}.png`};
-    openModal(`<div class="dhd"><div><h2>Program görseli</h2><div class="muted small">${esc(s.name)} · ${wLabel(ui.week)}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div><img src="${url}" alt="Program görseli" style="border:1px solid var(--line);border-radius:10px"><p class="small muted" style="margin:0">“Paylaş” ile iPad'in paylaşım menüsü açılır: WhatsApp'ı seçip öğrenciye gönderebilir veya Fotoğraflar'a kaydedebilirsiniz.</p><div class="acts"><button class="btn ghost" data-a="close">Kapat</button><button class="btn wa" data-a="savePng">${ic('wa','s')}Paylaş / WhatsApp'a gönder</button></div>`,true);
+    openModal(`<div class="dhd"><div><h2>Program görseli</h2><div class="muted small">${esc(s.name)} · ${wLabel(ui.week)}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div><img src="${url}" alt="Program görseli" style="border:1px solid var(--line);border-radius:10px"><p class="small muted" style="margin:0">“Paylaş” ile iPad'in paylaşım menüsü açılır: WhatsApp'ı seçip öğrenciye gönderebilir veya Fotoğraflar'a kaydedebilirsiniz.</p><div class="acts"><button class="btn ghost" data-a="close">Kapat</button><button class="btn" data-a="printProg">${ic('report','s')}Yazdır</button><button class="btn wa" data-a="savePng">${ic('wa','s')}Paylaş / WhatsApp'a gönder</button></div>`,true);
   },
   savePng(){const {url,name}=ui.png;saveFile(name,dataUrlToBlob(url))},
   pickImg(){$('#fileImg').click()},
@@ -1735,6 +1825,7 @@ document.addEventListener('change',e=>{
   const el=e.target,ch=el.dataset.ch;
   if(ch==='eType'){ui.exDraft.type=el.value;$('#eRows').innerHTML=examRows(el.value,ui.exDraft.id?S.exams[ui.exDraft.id]:null);calcNets()}
   if(ch==='sTarget'){const old=ui.sid&&S.students[ui.sid];$('#sGoals').innerHTML=goalInputs(el.value,old&&old.goals)}
+  if(ch==='pMotto'){const s=cur();const p=editProg(s.id,ui.week);p.motto=el.value.trim();put('programs',pid(s.id,ui.week),p)}
   if(ch==='pNote'||ch==='pEval'){const s=cur();const p=editProg(s.id,ui.week);p[ch==='pNote'?'note':'eval']=el.value;put('programs',pid(s.id,ui.week),p)}
   if(ch==='bookDone'){const s=clone(cur());const b=(s.books||[]).find(x=>x.id===el.dataset.id);if(b){b.done=+el.value||0;saveS(s)}}
   if(ch==='setDate'){saveSettings({yks:val('setYks')||SET().yks,lgs:val('setLgs')||SET().lgs,parentEvery:Math.max(1,+val('setPE')||14)});students().forEach(shareProfile)}
