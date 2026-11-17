@@ -487,7 +487,7 @@ function haftaSozu(s,p,wk){
   const ad=firstName(s.name);
   if(p&&p.motto)return{intro:'',text:p.motto.replace(/\{ad\}/g,ad),by:'Esra Hoca'};
   const ids=Object.keys(S.students).sort();const rank=Math.max(0,ids.indexOf(s.id));
-  const n=Math.floor(pkey(wk).getTime()/(7*864e5));const N=SOZ_HAVUZ.length;
+  const n=Math.floor(monday(pkey(wk)).getTime()/(7*864e5));const N=SOZ_HAVUZ.length;
   const it=SOZ_HAVUZ[(((rank+n+(p&&p.mottoShift||0))%N)+N)%N];
   if(it.own)return{intro:'',text:ad?`${ad}, ${ilkKucuk(it.q)}`:it.q,by:'Esra Hoca'};
   return{intro:ad?`${ad}, bu haftanın sözü senin için:`:'Bu haftanın sözü:',text:it.q,by:it.by};
@@ -701,7 +701,18 @@ function prog(sid,wk){
 }
 function blankProg(sid,wk){return{sid,week:wk,days:Array.from({length:7},()=>({tasks:[],call:null})),note:'',eval:''}}
 function editProg(sid,wk){const p=S.programs[pid(sid,wk)];return p?clone(p):blankProg(sid,wk)}
-function dayOf(sid,date){const p=prog(sid,wkey(date));return p?p.days[dIdx(date)]:null}
+/* ---- Öğrenciye özel program dönemi ----
+   Her program kendi başlangıç tarihinden itibaren 7 gün sürer (p.week = başlangıç).
+   Bir tarih, son 7 gün içinde başlayan en yeni programa aittir. Program yoksa
+   öğrencinin "program başlangıç günü"ne (s.wsDay, 0=Pazar … 6=Cumartesi; varsayılan Pazartesi) göre hesaplanır. */
+const wsDay=sid=>{const s=S.students[sid];return s&&s.wsDay!=null&&s.wsDay!==''?+s.wsDay:1};
+const toDate=d=>typeof d==='string'?pkey(d):new Date(d.getFullYear(),d.getMonth(),d.getDate());
+function startOf(sid,date){const d=toDate(date);for(let k=0;k<7;k++){const s=dkey(addD(d,-k));if(S.programs[pid(sid,s)])return s}return dkey(addD(d,-((d.getDay()-wsDay(sid)+7)%7)))}
+function slot(sid,date){const d=toDate(date);const wk=startOf(sid,d);return{wk,i:Math.round((d-pkey(wk))/864e5)}}
+const curWeek=sid=>sid?startOf(sid,today()):wkey(today());
+function prevProgStart(sid,wk){for(let k=1;k<=28;k++){const s=dkey(addD(pkey(wk),-k));if(S.programs[pid(sid,s)])return s}return null}
+const dayName=(wk,i,short)=>(short?GN:GUN)[dIdx(addD(pkey(wk),i))];
+function dayOf(sid,date){const {wk,i}=slot(sid,date);const p=prog(sid,wk);return p?p.days[i]:null}
 function dayTasks(sid,date){const d=dayOf(sid,date);return d?d.tasks:[]}
 function dayCall(sid,date){const d=dayOf(sid,date);return d?d.call:null}
 function dayQH(d){if(!d)return{q:null,h:null};const c=d.call||{};return{q:numOrNull(c.q)!=null?+c.q:(d.sq!=null?d.sq:null),h:numOrNull(c.h)!=null?+c.h:(d.sh!=null?d.sh:null)}}
@@ -755,8 +766,8 @@ function wrongTopics(sid,n,range){
 function weakTopics(s){const tp=s.topics||{};return Object.entries(tp).filter(([k,v])=>v==='e'||v==='t').map(([k,v])=>{const [subj,topic]=k.split('|');return{subj,topic,v}})}
 function missStreak(sid){let miss=0;const t=today();for(let i=0;i<7;i++){const c=dayCall(sid,addD(t,-i));if(!c||c.st==='skip')continue;if(c.st==='ok'||c.st==='msg')break;miss++}return miss}
 function alertsFor(st){
-  const out=[];const t=today();const wk=wkey(t);const p=prog(st.id,wk);
-  if(!p||!p.days.some(d=>d.tasks.length))out.push({sev:'warn',t:'Bu haftanın programı hazır değil',r:`${wLabel(wk)} haftası için hiç görev girilmemiş.`,btn:'Programa git',a:'goProg',sid:st.id});
+  const out=[];const t=today();const wk=curWeek(st.id);const p=prog(st.id,wk);
+  if(!p||!p.days.some(d=>d.tasks.length))out.push({sev:'warn',t:'Güncel programı hazır değil',r:`${wLabel(wk)} dönemi için hiç görev girilmemiş.`,btn:'Programa git',a:'goProg',sid:st.id});
   const miss=missStreak(st.id);
   if(miss>=2)out.push({sev:'bad',t:`${miss} aramadır ulaşılamadı`,r:'Son aramalarda öğrenci açmadı, meşguldü veya telefonu kapalıydı. Veliyi aramak iyi olabilir.',btn:'Veliyi ara',a:'pcall',sid:st.id});
   const y=addD(t,-1);const ys=score(dayTasks(st.id,y));
@@ -772,6 +783,8 @@ function alertsFor(st){
   if(wt.length)out.push({sev:'info',t:`Tekrarlayan yanlış: ${wt.slice(0,2).map(w=>w.topic).join(', ')}`,r:`Son 3 denemede bu konulardan toplam ${wt.slice(0,2).reduce((a,w)=>a+w.v,0)} yanlış var. Programa ek görev planlanabilir.`,btn:'Konular',a:'goTopics',sid:st.id});
   return out;
 }
+// veli raporu için varsayılan dönem: güncel dönemin 5. gününe gelindiyse bu dönem, değilse bir önceki
+function repWeekFor(sid){const {wk,i}=slot(sid,today());return i>=4?wk:(prevProgStart(sid,wk)||dkey(addD(pkey(wk),-7)))}
 function todayProgramText(s,d){
   const ts=dayTasks(s.id,d||today());if(!ts.length)return '(Bugün için görev yok)';
   return ts.map(t=>`• ${t.subj}${t.topic?' – '+t.topic:''}${t.qty?` (${t.qty} ${t.unit||''})`:''}${t.note?`\n   ${t.note}`:''}`).join('\n');
@@ -781,7 +794,7 @@ function fillTpl(text,s){
   const rep={ad:firstName(s.name),adsoyad:cleanName(s.name),veli:s.parent||'Sayın Veli',koc:COACH,bugun_program:todayProgramText(s),
     geciken_tutar:TL(od.sum),geciken_aylar:od.list.length?od.list.map(mLabel).join(', '):mLabel(mkey(today())),
     sinav_gun:ed&&daysTo(ed.date)>=0?`${ed.name}'ye ${daysTo(ed.date)} gün`:'',hedef:s.goalText||''};
-  return String(text).replace(/\{haftalik_rapor\}/g,()=>parentText(s,dIdx(today())>=4?wkey(today()):wkey(addD(today(),-7)))).replace(/\{(\w+)\}/g,(m,k)=>rep[k]!=null?rep[k]:m);
+  return String(text).replace(/\{haftalik_rapor\}/g,()=>parentText(s,repWeekFor(s.id))).replace(/\{(\w+)\}/g,(m,k)=>rep[k]!=null?rep[k]:m);
 }
 
 /* ============ grafikler ============ */
@@ -891,7 +904,7 @@ function vPresent(){
   const s=S.students[ui.present];if(!s){ui.present=null;return ''}
   const wk=ui.pweek;const p=prog(s.id,wk);const tk=dkey(today());const w=weekStats(s.id,wk);const ed=examDateFor(s);const z=haftaSozu(s,p,wk);
   const days=Array.from({length:7},(_,i)=>{const d=addD(pkey(wk),i);const day=p?p.days[i]:{tasks:[]};
-    return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[i]}</b> <small>${fmtDs(d)}</small></div></div></div><div class="tasks">${day.tasks.map(x=>`<div class="task" style="--sc:${subjColor(x.subj)}"><div class="body" style="cursor:default"><div class="sb">${esc(x.subj)}</div>${x.topic?`<div class="tp">${esc(x.topic)}</div>`:''}${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}${x.qty?`<div class="q num">${esc(x.qty)} ${esc(x.unit||'')}</div>`:''}</div><span class="st ${x.s||''}">${x.s==='y'?ic('check','s'):x.s==='k'?ic('half','s'):x.s==='n'?ic('x','s'):''}</span></div>`).join('')||'<div class="muted small" style="padding:4px">—</div>'}</div></div>`}).join('');
+    return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[dIdx(d)]}</b> <small>${fmtDs(d)}</small></div></div></div><div class="tasks">${day.tasks.map(x=>`<div class="task" style="--sc:${subjColor(x.subj)}"><div class="body" style="cursor:default"><div class="sb">${esc(x.subj)}</div>${x.topic?`<div class="tp">${esc(x.topic)}</div>`:''}${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}${x.qty?`<div class="q num">${esc(x.qty)} ${esc(x.unit||'')}</div>`:''}</div><span class="st ${x.s||''}">${x.s==='y'?ic('check','s'):x.s==='k'?ic('half','s'):x.s==='n'?ic('x','s'):''}</span></div>`).join('')||'<div class="muted small" style="padding:4px">—</div>'}</div></div>`}).join('');
   return `<div class="head"><div class="row" style="gap:14px">${avatar(s,52)}<div><h1>${esc(cleanName(s.name))}</h1><p>Haftalık çalışma programın</p></div></div><div class="row">${ed&&daysTo(ed.date)>=0?`<span class="countdown">${ed.name}'ye <b class="num">${daysTo(ed.date)}</b> gün</span>`:''}<button class="btn" data-a="presentExit">${ic('lock','s')}Çık</button></div></div>
   <div class="card"><div class="ctitle"><div class="weeknav"><button class="ib" data-a="pwk" data-v="-1" aria-label="Önceki hafta">${ic('left')}</button><span class="wl">${wLabel(wk)}</span><button class="ib" data-a="pwk" data-v="1" aria-label="Sonraki hafta">${ic('right')}</button></div><span class="chip ${w.p>=.8?'ok':w.p>=.5?'warn':w.t?'bad':''}">${w.t?'Bugüne kadar '+pct(w.p):'Görev yok'}</span></div>
   <div class="pgrid-wrap"><div class="pgrid">${days}</div></div></div>
@@ -939,7 +952,7 @@ function vBugun(){
   if(!ss.length)return head+noStudents();
   let called=0,reached=0,tt=[],late=0,lateSum=0,qT=0,hT=0;
   ss.forEach(s=>{const c=dayCall(s.id,t);if(c){called++;if(c.st==='ok')reached++}tt=tt.concat(dayTasks(s.id,t));const od=overdue(s);if(od.list.length){late++;lateSum+=od.sum}});
-  const sc=score(tt);const wk=wkey(t);let wy=0,wtot=0;ss.forEach(s=>{const w=weekStats(s.id,wk);wy+=w.y+.5*w.k;wtot+=w.t;qT+=w.q;hT+=w.h});
+  const sc=score(tt);let wy=0,wtot=0;ss.forEach(s=>{const w=weekStats(s.id,curWeek(s.id));wy+=w.y+.5*w.k;wtot+=w.t;qT+=w.q;hT+=w.h});
   const pdue=ss.filter(s=>parentDue(s).due);
   const kpis=`<div class="kpis">
     <div class="kpi"><span class="l">Bugün aranan</span><span class="v num">${called}<small> / ${ss.length}</small></span><div class="meter"><i style="width:${called/ss.length*100}%"></i></div><span class="s">${reached} öğrenciyle konuşuldu</span></div>
@@ -982,10 +995,10 @@ function vIzleme(){
 
 /* ============ ARAMA PENCERESİ ============ */
 function openCall(sid,dk){
-  const s=S.students[sid];if(!s)return;const d=dk?pkey(dk):today();const wk=wkey(d),di=dIdx(d);
+  const s=S.students[sid];if(!s)return;const d=dk?pkey(dk):today();const {wk,i:di}=slot(sid,d);
   const p=prog(sid,wk);const day=p?p.days[di]:null;const c=day&&day.call||{};
   ui.callDraft={sid,dk:dkey(d),st:c.st==='no'?'noans':(c.st||''),mood:c.mood||0};
-  const prevD=addD(d,-1);const prevP=prog(sid,wkey(prevD));const prevOpen=prevP?prevP.days[dIdx(prevD)].tasks.filter(t=>!t.s):[];
+  const prevD=addD(d,-1);const prevDay=dayOf(sid,prevD);const prevOpen=prevDay?prevDay.tasks.filter(t=>!t.s):[];
   const taskRow=(t,dkk)=>`<div class="ctask" style="--sc:${subjColor(t.subj)}"><div class="grow" style="min-width:140px"><div style="font-weight:600">${esc(t.subj)} ${t.fs?'<span class="chip acc">Öğrenci işaretledi</span>':''}</div><div class="small muted">${esc(t.topic||'')} ${t.qty?`· <b class="num" style="color:var(--ink)">${esc(t.qty)} ${esc(t.unit||'')}</b>`:''}</div>${t.note?`<div class="tnote">${esc(t.note)}</div>`:''}</div><div class="tri">${[['y','check','Yaptı'],['k','half','Kısmen'],['n','x','Yapmadı']].map(([v,i,l])=>`<button class="${v} ${t.s===v?'on':''}" data-a="callTask" data-id="${sid}" data-d="${dkk}" data-t="${t.id}" data-v="${v}" title="${l}">${ic(i,'s')}<span>${l}</span></button>`).join('')}</div></div>`;
   const q=ui.callQueue;const qi=q?q.indexOf(sid):-1;
   const stu=day&&(day.sq!=null||day.sh!=null)?`<div class="small" style="color:var(--accent)">Öğrenci bildirdi: ${day.sq!=null?day.sq+' soru':''}${day.sq!=null&&day.sh!=null?', ':''}${day.sh!=null?day.sh+' saat':''}</div>`:'';
@@ -993,9 +1006,9 @@ function openCall(sid,dk){
   const wa=waLink(s.phone,`Merhaba ${firstName(s.name)}, `);
   openModal(`<div class="dhd"><div class="row">${avatar(s,44)}<div><h2>${esc(s.name)}</h2><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}${q?` · Arama turu ${qi+1}/${q.length}`:''}</div></div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
    <div class="row" style="gap:18px">${s.phone?`<div><div class="small muted">Öğrenci</div><a class="phone" href="tel:${esc(s.phone.replace(/\s/g,''))}">${esc(s.phone)}</a></div>`:''}${s.parentPhone?`<div><div class="small muted">Veli ${esc(s.parent||'')}</div><a class="phone" href="tel:${esc(s.parentPhone.replace(/\s/g,''))}">${esc(s.parentPhone)}</a></div>`:''}${wa?`<a class="btn sm wa" href="${esc(wa)}" target="_blank" rel="noopener">${ic('wa','s')}WhatsApp</a>`:''}${!s.phone&&!s.parentPhone?'<span class="muted small">Telefon kaydı yok. Öğrenci bilgilerinden ekleyebilirsiniz.</span>':''}</div>
-   <div class="row"><div class="seg">${[-1,0].map(o=>{const x=addD(today(),o);return `<button class="${dkey(x)===dkey(d)?'on':''}" data-a="callDay" data-id="${sid}" data-d="${dkey(x)}">${o?'Dün':'Bugün'} · ${GN[dIdx(x)]}</button>`}).join('')}</div>${dkey(d)!==dkey(today())&&dkey(d)!==dkey(addD(today(),-1))?`<span class="chip acc">${GUN[di]}, ${fmtD(d)}</span>`:''}</div>
+   <div class="row"><div class="seg">${[-1,0].map(o=>{const x=addD(today(),o);return `<button class="${dkey(x)===dkey(d)?'on':''}" data-a="callDay" data-id="${sid}" data-d="${dkey(x)}">${o?'Dün':'Bugün'} · ${GN[dIdx(x)]}</button>`}).join('')}</div>${dkey(d)!==dkey(today())&&dkey(d)!==dkey(addD(today(),-1))?`<span class="chip acc">${GUN[dIdx(d)]}, ${fmtD(d)}</span>`:''}</div>
    <div><div class="sec">Arama durumu</div><div class="stset">${Object.entries(CALLST).map(([k,[l,cl]])=>`<button class="${cl} ${ui.callDraft.st===k?'on':''}" data-a="cSt" data-v="${k}">${l}</button>`).join('')}</div></div>
-   <div><h3 style="margin-bottom:8px">${GUN[di]} görevleri</h3>${day&&day.tasks.length?`<div style="display:flex;flex-direction:column;gap:6px">${day.tasks.map(t=>taskRow(t,dkey(d))).join('')}</div>`:`<div class="empty small" style="padding:14px">${p?'Bu gün için görev yok.':'Bu hafta için program yok.'}<button class="btn sm" data-a="goProg" data-id="${sid}">Programa git</button></div>`}</div>
+   <div><h3 style="margin-bottom:8px">${GUN[dIdx(d)]} görevleri</h3>${day&&day.tasks.length?`<div style="display:flex;flex-direction:column;gap:6px">${day.tasks.map(t=>taskRow(t,dkey(d))).join('')}</div>`:`<div class="empty small" style="padding:14px">${p?'Bu gün için görev yok.':'Bu hafta için program yok.'}<button class="btn sm" data-a="goProg" data-id="${sid}">Programa git</button></div>`}</div>
    ${prevOpen.length?`<div><h3 style="margin-bottom:8px">Önceki günden işaretlenmeyenler</h3><div style="display:flex;flex-direction:column;gap:6px">${prevOpen.map(t=>taskRow(t,dkey(prevD))).join('')}</div></div>`:''}
    <div class="fg" style="grid-template-columns:1fr">
      <div class="qh"><label class="f">Çalışma süresi (saat)<input id="cH" type="number" inputmode="decimal" min="0" step="0.5" value="${esc(hv)}" placeholder="Örn. 4,5"></label><label class="f">Çözülen soru<input id="cQ" type="number" inputmode="numeric" min="0" value="${esc(qv)}"></label></div>${stu}
@@ -1005,8 +1018,8 @@ function openCall(sid,dk){
    <div class="acts"><button class="btn ghost" data-a="close">Vazgeç</button><button class="btn ${q?'':'pri'}" data-a="saveCall">Kaydet</button>${q&&qi<q.length-1?`<button class="btn pri" data-a="saveCall" data-next="1">Kaydet ve sonraki ${ic('right','s')}</button>`:''}</div>`);
 }
 function setTaskState(sid,dk,tid,v){
-  const d=pkey(dk),wk=wkey(d);const shown=prog(sid,wk);const st=shown?shown.days[dIdx(d)].tasks.find(x=>x.id===tid):null;
-  const p=editProg(sid,wk);const t=p.days[dIdx(d)].tasks.find(x=>x.id===tid);if(!t)return;
+  const d=pkey(dk);const {wk,i:di}=slot(sid,d);const shown=prog(sid,wk);const st=shown?shown.days[di].tasks.find(x=>x.id===tid):null;
+  const p=editProg(sid,wk);const t=p.days[di].tasks.find(x=>x.id===tid);if(!t)return;
   t.s=(st&&st.s)===v?'':v;put('programs',pid(sid,wk),p);return t.s;
 }
 
@@ -1052,7 +1065,6 @@ function vOgrenciler(){
   const all=students(true);const ss=all.filter(s=>ui.showPassive||s.active!==false);const passive=all.length-students().length;
   const head=`<div class="head"><div><h1>Öğrenciler</h1><p>${students().length} aktif${passive?`, ${passive} pasif`:''} öğrenci</p></div><div class="row">${passive?`<button class="btn" data-a="togglePassive">${ui.showPassive?'Pasifleri gizle':'Pasifleri göster'}</button>`:''}<button class="btn pri" data-a="newStudent">${ic('plus')}Yeni öğrenci</button></div></div>`;
   if(!all.length)return head+noStudents();
-  const wk=wkey(today());
   return head+`<div class="grid g3">${ss.map(s=>{
     const w=weekStats(s.id,wk);const ex=examsOf(s.id);const last=ex[ex.length-1];const od=overdue(s);
     return `<div class="card scard" data-a="openS" data-id="${s.id}" role="button" tabindex="0"><div class="top">${avatar(s,44)}<div class="grow"><h3>${esc(s.name)}</h3><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}</div></div>${s.active===false?'<span class="chip">Pasif</span>':payOK()&&od.list.length?'<span class="chip bad">Ödeme gecikti</span>':s.link?'<span class="chip acc" title="Öğrenci ekranı bağlı">Bağlı</span>':''}</div>
@@ -1076,6 +1088,7 @@ function studentForm(s){
    <label class="f">Okul<input id="sSchool" value="${esc(s.school||'')}"></label>
    <label class="f">Veli adı<input id="sParent" value="${esc(s.parent)}"></label>
    <label class="f">Veli telefonu<input id="sPPhone" type="tel" value="${esc(s.parentPhone)}" placeholder="05xx xxx xx xx"></label>
+   <label class="f">Program başlangıç günü<select id="sWs">${GUN.map((g,i)=>{const v=(i+1)%7;return `<option value="${v}" ${(s.wsDay!=null&&s.wsDay!==''?+s.wsDay:1)===v?'selected':''}>${g}</option>`}).join('')}</select></label>
    <label class="f">Veli kaç günde bir aransın<input id="sPEvery" type="number" min="1" max="90" value="${esc(s.parentEvery||SET().parentEvery)}"></label>
    <label class="f">Aylık ücret (₺)<input id="sFee" type="number" inputmode="numeric" min="0" value="${esc(s.fee)}"></label>
    <label class="f">Ödeme günü (ayın kaçı)<input id="sPayDay" type="number" min="1" max="28" value="${esc(s.payDay||5)}"></label>
@@ -1104,8 +1117,8 @@ function goalCards(s){
     return `<div class="goal"><div class="gl2"><span><b>${EXAMS[k].label}</b> · son ${last?fmtNet(cur):'–'} net</span><span class="num">${last?(gap>0?`hedefe <b>${fmtNet(gap)}</b> net`:'<b style="color:var(--ok)">hedef aşıldı</b>'):''} / ${fmtNet(goal)}</span></div><div class="meter" style="height:10px"><i style="width:${Math.min(100,Math.max(0,cur)/goal*100)}%;background:${cur>=goal?'var(--ok)':'var(--accent)'}"></i></div></div>`}).join('')||'<div class="muted small">Hedef net girilmedi.</div>'}</div></div>`;
 }
 function studentSummary(s){
-  const t=today();const wk=wkey(t);const w=weekStats(s.id,wk);
-  const weeks=[],qweeks=[],hweeks=[];for(let i=11;i>=0;i--){const k=wkey(addD(t,-7*i));const st=weekStats(s.id,k);weeks.push({label:fmtDs(k),v:st.t?st.p:null});qweeks.push({label:fmtDs(k),v:st.qd?st.q:null});hweeks.push({label:fmtDs(k),v:st.hd?st.h:null})}
+  const t=today();const wk=curWeek(s.id);const w=weekStats(s.id,wk);
+  const weeks=[],qweeks=[],hweeks=[];for(let i=11;i>=0;i--){const k=dkey(addD(pkey(wk),-7*i));const st=weekStats(s.id,k);weeks.push({label:fmtDs(k),v:st.t?st.p:null});qweeks.push({label:fmtDs(k),v:st.qd?st.q:null});hweeks.push({label:fmtDs(k),v:st.hd?st.h:null})}
   const a=addD(monday(t),-21);const r4=rangeStats(s.id,a,t);
   const subs=Object.entries(r4.bySub).map(([k,v])=>({label:k,v:score(v).p||0,color:subjColor(k)})).sort((a,b)=>b.v-a.v);
   const ex=examsOf(s.id);const last=ex[ex.length-1];const od=overdue(s);const pd=parentDue(s);
@@ -1191,16 +1204,18 @@ function vProgram(){
   const ss=students();
   const head=`<div class="head"><div><h1>Haftalık program</h1><p>Öğrenciye özel ders ve görev planı</p></div><button class="btn" data-a="tplOpen">${ic('tpl','s')}Şablonlar</button></div>`;
   if(!ss.length)return head+noStudents();
-  if(!ui.sid||!S.students[ui.sid])ui.sid=ss[0].id;
+  if(!ui.sid||!S.students[ui.sid]){ui.sid=ss[0].id;ui.week=curWeek(ui.sid)}
   return head+studentPicker()+programEditor(S.students[ui.sid]);
 }
 function programEditor(s){
   const wk=ui.week;const p=prog(s.id,wk);const tk=dkey(today());const w=weekStats(s.id,wk);
-  const nav=`<div class="weeknav"><button class="ib" data-a="wk" data-v="-1" aria-label="Önceki hafta">${ic('left')}</button><span class="wl">${wLabel(wk)}</span><button class="ib" data-a="wk" data-v="1" aria-label="Sonraki hafta">${ic('right')}</button>${wk!==wkey(today())?`<button class="btn sm" data-a="wk" data-v="0">Bu hafta</button>`:''}</div>`;
+  const hasP=!!S.programs[pid(s.id,wk)];
+  const nav=`<div class="weeknav"><button class="ib" data-a="wk" data-v="-1" aria-label="Önceki dönem">${ic('left')}</button><span class="wl">${wLabel(wk)}</span><button class="ib" data-a="wk" data-v="1" aria-label="Sonraki dönem">${ic('right')}</button>${wk!==curWeek(s.id)?`<button class="btn sm" data-a="wk" data-v="0">Güncel program</button>`:''}</div>
+   <div class="row" style="gap:8px"><label class="small muted" for="wkDate" style="font-weight:600">Başlangıç tarihi</label><input type="date" id="wkDate" class="inp" data-ch="wkDate" value="${wk}" style="width:auto;min-height:38px;padding:6px 10px">${hasP?`<button class="btn sm" data-a="moveProg">${ic('cal','s')}Başlangıcı taşı</button>`:''}</div>`;
   const tools=`<div class="row"><button class="btn sm" data-a="copyWeek">${ic('copy','s')}Geçen haftadan kopyala</button><button class="btn sm" data-a="tplOpen">${ic('tpl','s')}Şablon</button><button class="btn sm" data-a="pickImg">${ic('img','s')}Görsel ekle</button><button class="btn sm" data-a="present" data-id="${s.id}">${ic('eye','s')}Öğrenciye göster</button><button class="btn sm" data-a="printProg">${ic('report','s')}Yazdır</button><button class="btn sm pri" data-a="exportPng">${ic('dl','s')}Programı görsel olarak al</button></div>`;
   const days=Array.from({length:7},(_,i)=>{
     const d=addD(pkey(wk),i);const day=p?p.days[i]:{tasks:[],call:null};const sc=score(day.tasks);const c=day.call;const qh=dayQH(day);
-    return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[i]}</b> <small>${fmtDs(d)}</small></div><button class="callmark ${c?callMk(c.st):''}" data-a="call" data-id="${s.id}" data-d="${dkey(d)}" title="${c?callLabel(c.st):'Arama kaydı yok'}">${ic('phone','s')}</button></div>${sc.t?`<div class="meter"><i style="width:${(sc.p||0)*100}%;background:${sc.p>=.8?'var(--ok)':sc.p>=.5?'var(--hl)':'var(--bad)'}"></i></div>`:''}${qh.q!=null||qh.h!=null?`<div class="dq num">${qh.h!=null?fmtN(qh.h)+' sa':''}${qh.q!=null&&qh.h!=null?' · ':''}${qh.q!=null?qh.q+' soru':''}</div>`:''}</div>
+    return `<div class="day ${dkey(d)===tk?'today':''}"><div class="dh"><div class="r1"><div><b>${GN[dIdx(d)]}</b> <small>${fmtDs(d)}</small></div><button class="callmark ${c?callMk(c.st):''}" data-a="call" data-id="${s.id}" data-d="${dkey(d)}" title="${c?callLabel(c.st):'Arama kaydı yok'}">${ic('phone','s')}</button></div>${sc.t?`<div class="meter"><i style="width:${(sc.p||0)*100}%;background:${sc.p>=.8?'var(--ok)':sc.p>=.5?'var(--hl)':'var(--bad)'}"></i></div>`:''}${qh.q!=null||qh.h!=null?`<div class="dq num">${qh.h!=null?fmtN(qh.h)+' sa':''}${qh.q!=null&&qh.h!=null?' · ':''}${qh.q!=null?qh.q+' soru':''}</div>`:''}</div>
     <div class="tasks">${day.tasks.map(x=>`<div class="task" style="--sc:${subjColor(x.subj)}"><div class="body" data-a="editTask" data-i="${i}" data-t="${x.id}"><div class="sb">${esc(x.subj)}</div>${x.topic?`<div class="tp">${esc(x.topic)}</div>`:''}${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}${x.qty?`<div class="q num">${esc(x.qty)} ${esc(x.unit||'')}</div>`:''}</div><button class="st ${x.s||''} ${x.fs?'fs':''}" data-a="cycle" data-i="${i}" data-t="${x.id}" aria-label="Durum" title="${x.fs?'Öğrenci işaretledi':''}">${x.s==='y'?ic('check','s'):x.s==='k'?ic('half','s'):x.s==='n'?ic('x','s'):''}</button></div>`).join('')}
     <button class="addt" data-a="addTask" data-i="${i}">${ic('plus','s')}Görev</button></div></div>`}).join('');
   const bySub={};if(p)p.days.forEach(d=>d.tasks.forEach(x=>{const b=bySub[x.subj]||(bySub[x.subj]={plan:0,done:0,n:0,y:0,k:0,unit:x.unit});b.n++;if(x.s==='y'){b.y++;b.done+=+x.qty||0}else if(x.s==='k'){b.k++;b.done+=(+x.qty||0)/2}if(x.unit===b.unit)b.plan+=+x.qty||0}));
@@ -1225,7 +1240,7 @@ function taskForm(i,tid,pre){
   const subs=new Set(DERSLER[s.target]||DERSLER['YKS-SAY']);topicSubjects(s).forEach(g=>subs.add(g.subj));Object.values(S.programs).filter(x=>x.sid===s.id).forEach(x=>x.days.forEach(d=>d.tasks.forEach(k=>subs.add(k.subj))));
   const allTopics=[...new Set(topicSubjects(s).flatMap(g=>g.topics))];const weak=weakTopics(s).slice(0,12);
   ui.taskDays=[i];pre=pre||{};
-  openModal(`<div class="dhd"><div><h2>${t?'Görevi düzenle':'Görev ekle'}</h2><div class="muted small">${esc(s.name)} · ${GUN[i]}, ${fmtD(addD(pkey(ui.week),i))}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
+  openModal(`<div class="dhd"><div><h2>${t?'Görevi düzenle':'Görev ekle'}</h2><div class="muted small">${esc(s.name)} · ${dayName(ui.week,i)}, ${fmtD(addD(pkey(ui.week),i))}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
   ${!t&&weak.length?`<div><div class="sec">Eksik/tekrar konulardan seç</div><div class="tchips">${weak.map(w=>`<button class="tc ${w.v}" data-a="fillTopic" data-subj="${esc(w.subj)}" data-topic="${esc(w.topic)}">${esc(w.topic)}</button>`).join('')}</div></div>`:''}
   <div class="fg">
    <label class="f">Ders<input id="tSubj" list="dl-subj" value="${esc(t?t.subj:pre.subj||'')}" autocomplete="off"><datalist id="dl-subj">${[...subs].map(x=>`<option value="${esc(x)}">`).join('')}</datalist></label>
@@ -1234,7 +1249,7 @@ function taskForm(i,tid,pre){
    <label class="f">Miktar<input id="tQty" type="number" inputmode="numeric" min="0" value="${esc(t?t.qty:'')}"></label>
    <label class="f">Birim<select id="tUnit">${BIRIM.map(b=>`<option ${(t?t.unit:'soru')===b?'selected':''}>${b}</option>`).join('')}</select></label>
   </div>
-  ${t?'':`<div><div class="sec">Aynı görevi başka günlere de ekle</div><div class="dchips">${GN.map((g,k)=>`<button class="${k===i?'on':''}" data-a="tDay" data-v="${k}">${g}</button>`).join('')}</div></div>`}
+  ${t?'':`<div><div class="sec">Aynı görevi başka günlere de ekle</div><div class="dchips">${GN.map((g,k)=>`<button class="${k===i?'on':''}" data-a="tDay" data-v="${k}">${dayName(ui.week,k,1)} ${fmtDs(addD(pkey(ui.week),k))}</button>`).join('')}</div></div>`}
   <div class="acts">${t?`<button class="btn danger" data-a="delTask" data-i="${i}" data-t="${t.id}" style="margin-right:auto">${ic('trash','s')}Sil</button>`:''}<button class="btn ghost" data-a="close">Vazgeç</button><button class="btn pri" data-a="saveTask" data-i="${i}" data-t="${t?t.id:''}">Kaydet</button></div>`);
   setTimeout(()=>{const el=$(pre.topic?'#tQty':'#tSubj');if(el&&!t)el.focus()},50);
 }
@@ -1245,7 +1260,7 @@ function tplModal(){
   ${s?`<div class="card" style="box-shadow:none"><div class="sec">Bu haftanın programını şablon yap (${esc(s.name)})</div><div class="row"><input class="inp grow" id="tplName" placeholder="Örn. YKS sayısal – yoğun hafta"><button class="btn pri" data-a="tplSave">Kaydet</button></div></div>`:''}
   ${tps.length?`<div><div class="sec">Hangi öğrencilere uygulansın?</div><div class="dchips">${students().map(x=>`<button class="${ui.tplStudents.includes(x.id)?'on':''}" data-a="tplStu" data-id="${x.id}">${esc(x.name)}</button>`).join('')}</div></div>
   <div><div class="sec">Uygulama şekli</div><div class="seg"><button class="${ui.tplMode!=='replace'?'on':''}" data-a="tplMode" data-v="add">Mevcut görevlere ekle</button><button class="${ui.tplMode==='replace'?'on':''}" data-a="tplMode" data-v="replace">Görevlerin yerine koy</button></div></div>
-  <div style="display:flex;flex-direction:column;gap:8px">${tps.map(t=>{const n=t.days.reduce((a,d)=>a+d.tasks.length,0);return `<div class="alert info"><span class="sev"></span><div class="grow"><div class="t">${esc(t.name)}</div><div class="r">${n} görev · ${t.days.map((d,i)=>d.tasks.length?GN[i]+' '+d.tasks.length:'').filter(Boolean).join(', ')}</div></div><button class="ib" data-a="tplDel" data-id="${t.id}" aria-label="Sil">${ic('trash','s')}</button><button class="btn sm pri" data-a="tplApply" data-id="${t.id}">Uygula</button></div>`}).join('')}</div>`:'<div class="empty small">Henüz şablon yok. Bir öğrencinin iyi işleyen haftasını şablon olarak kaydedip diğer öğrencilere tek tuşla uygulayabilirsiniz.</div>'}`,true);
+  <div style="display:flex;flex-direction:column;gap:8px">${tps.map(t=>{const n=t.days.reduce((a,d)=>a+d.tasks.length,0);return `<div class="alert info"><span class="sev"></span><div class="grow"><div class="t">${esc(t.name)}</div><div class="r">${n} görev · ${t.days.map((d,i)=>d.tasks.length?(i+1)+'. gün '+d.tasks.length:'').filter(Boolean).join(', ')}</div></div><button class="ib" data-a="tplDel" data-id="${t.id}" aria-label="Sil">${ic('trash','s')}</button><button class="btn sm pri" data-a="tplApply" data-id="${t.id}">Uygula</button></div>`}).join('')}</div>`:'<div class="empty small">Henüz şablon yok. Bir öğrencinin iyi işleyen haftasını şablon olarak kaydedip diğer öğrencilere tek tuşla uygulayabilirsiniz.</div>'}`,true);
 }
 
 /* ---- program görseli (PNG) ---- */
@@ -1273,7 +1288,7 @@ function drawProgram(s,wk){
   p.days.forEach((d,i)=>{
     const x=PAD+i*(colW+14);const dd=addD(pkey(wk),i);
     ctx.fillStyle='#eef1f7';roundRect(ctx,x,y0,colW,56,12);ctx.fill();
-    ctx.fillStyle='#1c2236';ctx.font=`600 26px ${FD}`;ctx.fillText(GUN[i],x+16,y0+37);
+    ctx.fillStyle='#1c2236';ctx.font=`600 26px ${FD}`;ctx.fillText(GUN[dIdx(dd)],x+16,y0+37);
     ctx.fillStyle='#5f6883';ctx.font=`500 20px ${F}`;const ds=fmtDs(dd);ctx.fillText(ds,x+colW-16-ctx.measureText(ds).width,y0+36);
     let y=y0+72;
     d.tasks.forEach(t=>{
@@ -1326,11 +1341,11 @@ function parentText(s,wk){
   return lines.join('\n');
 }
 function parentModal(sid){
-  const s=S.students[sid];const t=today();const cur=wkey(t),prev=wkey(addD(t,-7));
-  if(!ui.repWeek)ui.repWeek=dIdx(t)>=4?cur:prev;
+  const s=S.students[sid];const t=today();const cur=curWeek(sid),prev=prevProgStart(sid,cur)||dkey(addD(pkey(cur),-7));
+  if(!ui.repWeek)ui.repWeek=repWeekFor(sid);
   const txt=parentText(s,ui.repWeek);ui.repText=txt;const link=waLink(s.parentPhone,txt);
   openModal(`<div class="dhd"><div><h2>Veli raporu</h2><div class="muted small">${esc(s.name)}${s.parentPhone?' · Veli: '+esc(s.parent||'')+' '+esc(s.parentPhone):''}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
-  <div class="seg">${[[prev,'Geçen hafta'],[cur,'Bu hafta']].map(([k,l])=>`<button class="${ui.repWeek===k?'on':''}" data-a="repWeek" data-id="${sid}" data-v="${k}">${l} · ${fmtDs(k)}</button>`).join('')}</div>
+  <div class="seg">${[[prev,'Önceki program'],[cur,'Güncel program']].map(([k,l])=>`<button class="${ui.repWeek===k?'on':''}" data-a="repWeek" data-id="${sid}" data-v="${k}">${l} · ${fmtDs(k)}</button>`).join('')}</div>
   <pre class="msg" data-copysrc>${esc(txt)}</pre>
   <p class="small muted" style="margin:0">“Değerlendirmem” satırı, Program ekranındaki “Hafta sonu değerlendirmesi” alanından gelir. WhatsApp ile gönderdiğinizde veli görüşmelerine “Mesaj atıldı” olarak işlenir.</p>
   <div class="acts"><button class="btn ghost" data-a="close">Kapat</button><button class="btn" data-a="copyRep">${ic('copy','s')}Kopyala</button>${link?`<a class="btn wa" href="${esc(link)}" target="_blank" rel="noopener" data-a="repSent" data-id="${sid}">${ic('wa','s')}WhatsApp'ta veliye gönder</a>`:''}</div>`);
@@ -1570,7 +1585,11 @@ const KILAVUZ=[
   <p>Öğrenciler ekranında bir karta dokununca öğrencinin sayfası açılır. Üstte Ara, Veli, Veli raporu ve Düzenle düğmeleri, altında sekmeler vardır:</p>
   <ul><li><b>Özet:</b> bu haftaki tamamlama, çalışma saati, arama sayısı, son deneme, veli ve ödeme durumu; hedefe kalan net; son 12 haftanın çalışma saati, soru ve tamamlama grafikleri; derslere göre tamamlama; en çok yanlış yapılan konular; son görüşmeler.</li><li><b>Haftalık program:</b> öğrencinin programı (Program bölümüne bakın).</li><li><b>Aramalar:</b> son 30 günün arama sonuçları ve bütün görüşme notları.</li><li><b>Denemeler, Konular, Kaynaklar, Veli, Ödemeler:</b> aşağıdaki bölümlerde anlatıldı.</li></ul>`],
  ['program','Haftalık program',`
-  <p><b>Program</b> ekranında üstten öğrenciyi seçin. Oklarla haftalar arasında geçersiniz; <b>Bu hafta</b> düğmesi bugünün haftasına döner. Bugünün sütunu mavi çerçevelidir.</p>
+  <p><b>Program</b> ekranında üstten öğrenciyi seçin. Oklarla programlar arasında geçersiniz; <b>Güncel program</b> düğmesi bugünü kapsayan programa döner. Bugünün sütunu mavi çerçevelidir.</p>
+  <h3>Her öğrenciye ayrı başlangıç tarihi</h3>
+  <p>Program her öğrenci için hazırladığınız günden başlar ve 7 gün sürer. Örneğin Perşembe hazırladığınız program Perşembe'den bir sonraki Çarşamba'ya kadardır; sütunlar da Perşembe, Cuma… diye sıralanır.</p>
+  ${KS(['Program ekranında <b>Başlangıç tarihi</b> kutusuna dokunup programın başlayacağı günü seçin (genellikle bugün).','Görevleri girin. Bu tarih öğrencinin <b>program başlangıç günü</b> olarak da kaydedilir; oklarla ileri gittiğinizde sonraki programlar da aynı günden başlar.','Yeni program başladığı gün, önceki programın kalan günlerinin yerini alır.'])}
+  <ul><li><b>Başlangıcı taşı:</b> hazırladığınız programı görevleri ve arama kayıtlarıyla birlikte başka bir başlangıç tarihine kaydırır.</li><li>Öğrencinin başlangıç gününü <b>Düzenle → Program başlangıç günü</b>'nden de değiştirebilirsiniz.</li><li>Arama, çalışma saati ve raporlar gerçek tarihlere göre çalışır; programların farklı günlerde başlaması hesapları bozmaz.</li></ul>
   <h3>Görev eklemek</h3>
   ${KS(['Günün altındaki <b>+ Görev</b>\'e basın.','<b>Ders</b>i yazın veya listeden seçin.','<b>Not</b> kutusuna istediğinizi yazın, örneğin “Kitabın 210–220. sayfaları arası, yanlışları işaretle”. Not, programda ve öğrenciye giden görselde sarı kutu içinde görünür.','İsterseniz <b>Konu / kaynak</b>, <b>Miktar</b> ve <b>Birim</b> (soru, test, sayfa, dk, konu, deneme) girin.','Aynı görevi başka günlere de koymak için alttaki gün düğmelerini seçin. Örneğin her gün 20 paragraf için bütün günleri işaretleyin.','<b>Kaydet</b>.'])}
   <p>Bir görevi değiştirmek veya silmek için görevin yazısına dokunun. Öğrencinin eksik ve tekrar gereken konuları pencerenin üstünde düğme olarak çıkar; dokununca ders ve konu kendiliğinden dolar.</p>
@@ -1719,7 +1738,7 @@ function renderStu(){
    <div class="kpis"><div class="kpi"><span class="l">Tamamlama</span><span class="v num">${pct(comp)}</span><div class="meter"><i style="width:${(comp||0)*100}%;background:var(--ok)"></i></div></div><div class="kpi"><span class="l">Çözülen soru</span><span class="v num">${q.toLocaleString('tr-TR')}</span></div><div class="kpi"><span class="l">Çalışma</span><span class="v num">${fmtN(h)}<small> saat</small></span></div></div></div>
   ${p.note?`<div class="alert" style="background:var(--hl-soft);border-color:transparent"><span class="sev" style="background:var(--hl)"></span><div><div class="t">Koçunun notu</div><div>${esc(p.note)}</div></div></div>`:''}
   ${p.days.map((d,i)=>{const dd=addD(pkey(wk),i);const isT=dkey(dd)===dkey(t);const md=m.days[i]||{};
-    return `<div class="card sday" style="${isT?'border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)':''}"><div class="sdh"><h3>${GUN[i]} <span class="muted small" style="font-weight:500">${fmtDs(dd)}</span> ${isT?'<span class="chip acc">Bugün</span>':''}</h3>
+    return `<div class="card sday" style="${isT?'border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)':''}"><div class="sdh"><h3>${GUN[dIdx(dd)]} <span class="muted small" style="font-weight:500">${fmtDs(dd)}</span> ${isT?'<span class="chip acc">Bugün</span>':''}</h3>
     <div class="miniin"><label>Saat<input type="number" inputmode="decimal" step="0.5" min="0" value="${esc(md.h??'')}" data-ch="sH" data-i="${i}" ${STU.readOnly?'disabled':''}></label><label>Soru<input type="number" inputmode="numeric" min="0" value="${esc(md.q??'')}" data-ch="sQ" data-i="${i}" ${STU.readOnly?'disabled':''}></label></div></div>
     ${d.tasks.length?d.tasks.map(x=>{const s=m.marks[x.id]||'';return `<div class="ctask" style="--sc:${subjColor(x.subj)}"><div class="grow" style="min-width:140px"><div style="font-weight:600">${esc(x.subj)}</div><div class="small muted">${esc(x.topic||'')} ${x.qty?`· <b class="num" style="color:var(--ink)">${esc(x.qty)} ${esc(x.unit||'')}</b>`:''}</div>${x.note?`<div class="tnote">${esc(x.note)}</div>`:''}</div><div class="tri">${[['y','check','Yaptım'],['k','half','Yarım'],['n','x','Yapmadım']].map(([vv,ii,l])=>`<button class="${vv} ${s===vv?'on':''}" data-a="sMark" data-w="${wk}" data-t="${x.id}" data-v="${vv}" ${STU.readOnly?'disabled':''}>${ic(ii,'s')}<span>${l}</span></button>`).join('')}</div></div>`}).join(''):'<div class="muted small">Bu gün için görev yok. Dinlen ya da tekrar yap.</div>'}</div>`}).join('')}
   ${codeCard}`;
@@ -1783,9 +1802,18 @@ const A={
   pinChange(){pinModal('change')},
   pinForgot(){confirmBox('Şifre sıfırlansın mı?','Şifreyi unuttuysanız sıfırlayabilirsiniz; ancak gizlilik için <b>bütün ödeme kayıtları da silinir</b>. Yedeğiniz varsa sonra “Yedekten geri yükle” ile ödemeleri geri getirebilirsiniz (yedekteki eski şifre de geri gelir).','Şifreyi ve ödemeleri sil',()=>{
     for(const id of Object.keys(S.payments))del('payments',id);const st=Object.assign({},SET());delete st.pinHash;put('settings','main',st);payUnlocked=false;closeModal();toast('Şifre sıfırlandı; yeni şifre belirleyin')})},
-  present(d){payUnlocked=false;ui.present=d.id||ui.sid;ui.pweek=ui.week||wkey(today());closeModal();window.scrollTo(0,0);render()},
+  present(d){payUnlocked=false;ui.present=d.id||ui.sid;ui.pweek=curWeek(d.id||ui.sid);closeModal();window.scrollTo(0,0);render()},
   presentExit(){if(hasPin())pinModal('exit');else{ui.present=null;render();toast('İpucu: Ayarlar\'dan şifre belirlerseniz bu moddan çıkmak şifre ister.')}},
-  pwk(d){ui.pweek=d.v==='0'?wkey(today()):dkey(addD(pkey(ui.pweek),7*+d.v));render()},
+  pwk(d){ui.pweek=d.v==='0'?curWeek(ui.present):dkey(addD(pkey(ui.pweek),7*+d.v));render()},
+  moveProg(){const s=cur();openModal(`<div class="dhd"><div><h2>Programın başlangıcını taşı</h2><div class="muted small">${esc(s.name)} · şu an ${fmtD(ui.week)} ${GUN[dIdx(pkey(ui.week))]}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
+    <p style="margin:0">Program, görevleri ve o günlere girilmiş arama kayıtlarıyla birlikte yeni başlangıç tarihine kaydırılır: 1. günün görevleri yeni tarihin görevi olur, diğer günler sırayla takip eder.</p>
+    <label class="f">Yeni başlangıç tarihi<input type="date" id="mvDate" value="${ui.week}"></label>
+    <div class="acts"><button class="btn ghost" data-a="close">Vazgeç</button><button class="btn pri" data-a="moveProgOk">Taşı</button></div>`)},
+  moveProgOk(){const s=clone(cur());const from=ui.week,to=val('mvDate');if(!to||to===from){closeModal();return}
+    if(S.programs[pid(s.id,to)]){toast(`${fmtD(to)} tarihinde başlayan bir program zaten var`);return}
+    const p=clone(S.programs[pid(s.id,from)]);p.week=to;put('programs',pid(s.id,to),p);del('programs',pid(s.id,from));
+    Object.values(S.images).forEach(m=>{if(m.pid===pid(s.id,from))m.pid=pid(s.id,to)});if(backend==='local')saveLocal('images');delete imgCache[pid(s.id,from)];delete imgCache[pid(s.id,to)];
+    s.wsDay=pkey(to).getDay();put('students',s.id,s);ui.week=to;closeModal();toast(`Program ${fmtD(to)} tarihine taşındı`);render()},
   sozDegis(){const s=cur();const p=editProg(s.id,ui.week);if(p.motto){p.motto='';const m=$('#pMotto');if(m)m.value=''}else p.mottoShift=(p.mottoShift||0)+1;put('programs',pid(s.id,ui.week),p)},
   printProg(){
     const s=cur();if(!s)return;const url=drawProgram(s,ui.week).toDataURL('image/png');
@@ -1803,7 +1831,7 @@ const A={
     const name=val('sName');if(!name){toast('Ad soyad gerekli');$('#sName').focus();return}
     const id=d.id||'s'+newId();const old=S.students[id]||{};const active=val('sActive')==='1';
     const goals={};document.querySelectorAll('[data-goal]').forEach(i=>{const v=numOrNull(i.value);if(v!=null)goals[i.dataset.goal]=v});
-    const o=Object.assign(clone(old),{name,grade:val('sGrade'),target:val('sTarget'),goalText:val('sGoalText'),goals,phone:val('sPhone'),school:val('sSchool'),parent:val('sParent'),parentPhone:val('sPPhone'),parentEvery:Math.max(1,+val('sPEvery')||14),fee:+val('sFee')||0,payDay:Math.min(28,Math.max(1,+val('sPayDay')||1)),start:val('sStart'),note:val('sNote'),active,color:old.color||PAL[Object.keys(S.students).length%PAL.length]});
+    const o=Object.assign(clone(old),{name,grade:val('sGrade'),target:val('sTarget'),goalText:val('sGoalText'),goals,phone:val('sPhone'),school:val('sSchool'),parent:val('sParent'),parentPhone:val('sPPhone'),parentEvery:Math.max(1,+val('sPEvery')||14),wsDay:+val('sWs'),fee:+val('sFee')||0,payDay:Math.min(28,Math.max(1,+val('sPayDay')||1)),start:val('sStart'),note:val('sNote'),active,color:old.color||PAL[Object.keys(S.students).length%PAL.length]});
     if(!active&&old.active!==false)o.passiveFrom=dkey(today());if(active)delete o.passiveFrom;
     put('students',id,o);closeModal();toast(d.id?'Öğrenci güncellendi':'Öğrenci eklendi');
     if(!d.id){ui.sid=id;ui.view='ogrenci';ui.stab='ozet'}
@@ -1812,13 +1840,13 @@ const A={
     for(const c of ['programs','exams','payments'])for(const id of Object.keys(S[c]))if(S[c][id].sid===d.id)del(c,id);
     del('students',d.id);ui.sid=null;ui.view='ogrenciler';closeModal();toast('Öğrenci silindi')})},
   confirmOk(){const cb=ui.confirmCb;ui.confirmCb=null;cb&&cb()},
-  openS(d){ui.sid=d.id;ui.view='ogrenci';ui.stab='ozet';ui.week=wkey(today());closeModal();window.scrollTo(0,0);render()},
+  openS(d){ui.sid=d.id;ui.view='ogrenci';ui.stab='ozet';ui.week=curWeek(d.id);closeModal();window.scrollTo(0,0);render()},
   stab(d){ui.stab=d.v;render()},
   togglePassive(){ui.showPassive=!ui.showPassive;render()},
-  pickS(d){ui.sid=d.id;render()},
+  pickS(d){ui.sid=d.id;ui.week=curWeek(d.id);render()},
   allAlerts(){ui.allAlerts=true;render()},
   iwk(d){ui.iweek=d.v==='0'?wkey(today()):dkey(addD(pkey(ui.iweek),7*+d.v));render()},
-  goProg(d){closeModal();ui.sid=d.id;ui.week=wkey(today());ui.view='program';window.scrollTo(0,0);render()},
+  goProg(d){closeModal();ui.sid=d.id;ui.week=curWeek(d.id);ui.view='program';window.scrollTo(0,0);render()},
   goPay(d){closeModal();ui.sid=d.id;ui.view='ogrenci';ui.stab='odeme';render()},
   goExam(d){ui.sid=d.id;ui.view='ogrenci';ui.stab='deneme';render()},
   goTopics(d){ui.sid=d.id;ui.view='ogrenci';ui.stab='konu';ui.topicFilter='weak';render()},
@@ -1844,8 +1872,8 @@ const A={
   cMood(d,el){const n=+d.v;ui.callDraft.mood=ui.callDraft.mood===n?0:n;el.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('on',+b.dataset.v===ui.callDraft.mood))},
   saveCall(d){
     const c=ui.callDraft;if(!c.st){toast('Arama durumunu seçin: Konuşuldu, Açmadı, Meşgul…');return}
-    const dd=pkey(c.dk),wk=wkey(dd);const p=editProg(c.sid,wk);
-    p.days[dIdx(dd)].call={st:c.st,mood:c.mood||0,q:val('cQ'),h:val('cH'),note:val('cNote'),t:Date.now()};
+    const dd=pkey(c.dk);const {wk,i:di}=slot(c.sid,dd);const p=editProg(c.sid,wk);
+    p.days[di].call={st:c.st,mood:c.mood||0,q:val('cQ'),h:val('cH'),note:val('cNote'),t:Date.now()};
     put('programs',pid(c.sid,wk),p);toast('Arama kaydedildi');
     const q=ui.callQueue;if(d.next&&q){const i=q.indexOf(c.sid);const nx=q[i+1];if(nx){openCall(nx);return}}
     closeModal();
@@ -1864,12 +1892,12 @@ const A={
   bNone(){ui.bulk.ids=[];bulkModal()},
   bNotCalled(){const t=today();ui.bulk.ids=students().filter(s=>!dayCall(s.id,t)).map(s=>s.id);bulkModal()},
   bSent(d,el){const b=ui.bulk;if(b.sent[d.id])return;b.sent[d.id]=true;el.classList.remove('wa');el.classList.add('done');el.innerHTML=ic('check','s')+'Gönderildi';
-    if(b.log){if(b.aud==='stu'){const t=today(),wk=wkey(t);if(!dayCall(d.id,t)){const p=editProg(d.id,wk);p.days[dIdx(t)].call={st:'msg',mood:0,q:'',h:'',note:'Toplu WhatsApp mesajı gönderildi',t:Date.now()};put('programs',pid(d.id,wk),p)}}else addPlog(d.id,'msg','WhatsApp mesajı gönderildi')}},
-  wk(d){ui.week=d.v==='0'?wkey(today()):dkey(addD(pkey(ui.week),7*+d.v));render()},
+    if(b.log){if(b.aud==='stu'){const t=today(),{wk,i:di}=slot(d.id,t);if(!dayCall(d.id,t)){const p=editProg(d.id,wk);p.days[di].call={st:'msg',mood:0,q:'',h:'',note:'Toplu WhatsApp mesajı gönderildi',t:Date.now()};put('programs',pid(d.id,wk),p)}}else addPlog(d.id,'msg','WhatsApp mesajı gönderildi')}},
+  wk(d){ui.week=d.v==='0'?curWeek(ui.sid):dkey(addD(pkey(ui.week),7*+d.v));render()},
   addTask(d){taskForm(+d.i)},
   editTask(d){taskForm(+d.i,d.t)},
   fillTopic(d){$('#tSubj').value=d.subj;$('#tTopic').value=d.topic;$('#tQty').focus()},
-  topicToProg(d){if(ui.view==='ogrenci')ui.stab='program';else ui.view='program';ui.week=wkey(today());render();taskForm(dIdx(today()),null,{subj:d.subj,topic:d.topic})},
+  topicToProg(d){if(ui.view==='ogrenci')ui.stab='program';else ui.view='program';ui.week=curWeek(ui.sid);render();taskForm(slot(ui.sid,today()).i,null,{subj:d.subj,topic:d.topic})},
   tDay(d,el){const k=+d.v;const s=new Set(ui.taskDays);s.has(k)?s.delete(k):s.add(k);ui.taskDays=[...s];el.classList.toggle('on',s.has(k))},
   saveTask(d){
     const subj=val('tSubj');if(!subj){toast('Ders adı gerekli');$('#tSubj').focus();return}
@@ -1882,7 +1910,7 @@ const A={
   delTask(d){const s=cur();const p=editProg(s.id,ui.week);p.days[+d.i].tasks=p.days[+d.i].tasks.filter(x=>x.id!==d.t);put('programs',pid(s.id,ui.week),p);closeModal()},
   cycle(d){const s=cur();const shown=prog(s.id,ui.week);const sh=shown.days[+d.i].tasks.find(x=>x.id===d.t);const p=editProg(s.id,ui.week);const t=p.days[+d.i].tasks.find(x=>x.id===d.t);const order=['','y','k','n'];t.s=order[(order.indexOf(sh&&sh.s||'')+1)%4];put('programs',pid(s.id,ui.week),p)},
   copyWeek(){
-    const s=cur();const prevWk=dkey(addD(pkey(ui.week),-7));const src=S.programs[pid(s.id,prevWk)];
+    const s=cur();const prevWk=prevProgStart(s.id,ui.week)||dkey(addD(pkey(ui.week),-7));const src=S.programs[pid(s.id,prevWk)];
     if(!src||!src.days.some(d=>d.tasks.length)){toast('Geçen hafta için program bulunamadı');return}
     const doCopy=()=>{const p=editProg(s.id,ui.week);src.days.forEach((d,i)=>{p.days[i].tasks=d.tasks.map(t=>({id:newId(),subj:t.subj,topic:t.topic,note:t.note||'',qty:t.qty,unit:t.unit,s:''}))});put('programs',pid(s.id,ui.week),p);closeModal();toast('Geçen haftanın görevleri kopyalandı')};
     const c=S.programs[pid(s.id,ui.week)];
@@ -1967,6 +1995,8 @@ document.addEventListener('change',e=>{
   const el=e.target,ch=el.dataset.ch;
   if(ch==='eType'){ui.exDraft.type=el.value;$('#eRows').innerHTML=examRows(el.value,ui.exDraft.id?S.exams[ui.exDraft.id]:null);calcNets()}
   if(ch==='sTarget'){const old=ui.sid&&S.students[ui.sid];$('#sGoals').innerHTML=goalInputs(el.value,old&&old.goals)}
+  if(ch==='wkDate'&&el.value){const s=clone(cur());const v=el.value;ui.week=v;const wd=pkey(v).getDay();if(+s.wsDay!==wd||s.wsDay==null){s.wsDay=wd;put('students',s.id,s)}
+    toast(`${cleanName(s.name)} için program ${fmtD(v)} ${GUN[dIdx(pkey(v))]} başlıyor. Sonraki programlar da ${GUN[dIdx(pkey(v))]} günü başlar.`);render()}
   if(ch==='pMotto'){const s=cur();const p=editProg(s.id,ui.week);p.motto=el.value.trim();put('programs',pid(s.id,ui.week),p)}
   if(ch==='pNote'||ch==='pEval'){const s=cur();const p=editProg(s.id,ui.week);p[ch==='pNote'?'note':'eval']=el.value;put('programs',pid(s.id,ui.week),p)}
   if(ch==='bookDone'){const s=clone(cur());const b=(s.books||[]).find(x=>x.id===el.dataset.id);if(b){b.done=+el.value||0;saveS(s)}}
@@ -1992,7 +2022,7 @@ $('#fileJson').addEventListener('change',async e=>{
       [...SUB,'images'].forEach(c=>{for(const id in (o[c]||{})){S[c][id]=o[c][id];S[c][id].id=id;if(backend==='cloud'&&c!=='images')persist(c,id)}});for(const k in imgCache)delete imgCache[k];if(backend==='local')saveLocal();closeModal();render();toast('Yedek geri yüklendi')});
   }catch(err){toast('Bu dosya bu programın yedeği değil')}
 });
-let lastDay=dkey(today());setInterval(()=>{const k=dkey(today());if(k!==lastDay){lastDay=k;ui.week=wkey(today());ui.iweek=wkey(today());scheduleRender()}},60000);
+let lastDay=dkey(today());setInterval(()=>{const k=dkey(today());if(k!==lastDay){lastDay=k;ui.week=curWeek(ui.sid);ui.iweek=wkey(today());scheduleRender()}},60000);
 initStore();
 if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
