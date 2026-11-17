@@ -316,7 +316,7 @@ html,body{margin:0}
 <script>
 "use strict";
 const COACH='Esra Doğan',APP="Esra Hoca'nız";
-const APPVER='9 · 17 Kasım 2026'; // sw.js SURUM ile birlikte artırın
+const APPVER='10 · 17 Kasım 2026'; // sw.js SURUM ile birlikte artırın
 /* ============ sabitler ============ */
 const GUN=['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
 const GN=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
@@ -2041,10 +2041,17 @@ initStore();
    Program arka plandan her öne geldiğinde yeni sürüm var mı diye bakılır. */
 if('serviceWorker' in navigator&&location.protocol==='https:'){
   const hadController=!!navigator.serviceWorker.controller;let reloading=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloading)return;reloading=true;try{if(dirty.size)flushLocal()}catch(e){}setTimeout(()=>location.reload(),300)});
+  // Yeni sürüm devreye girince yenile; ama bir pencere açıkken veya yazı yazılırken bekle (yarım kalan iş kaybolmasın)
+  const safeReload=()=>{
+    const a=document.activeElement;const busy=!$('#modal').hidden||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+    if(busy&&document.visibilityState==='visible'){setTimeout(safeReload,5000);return}
+    Promise.resolve(dirty.size?flushLocal():0).catch(()=>{}).then(()=>setTimeout(()=>location.reload(),300));
+  };
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloading)return;reloading=true;safeReload()});
   navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
     const chk=()=>reg.update().catch(()=>{});chk();
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')chk()});
+    setInterval(chk,15*60*1000); // program açık bırakılsa da 15 dakikada bir yeni sürüme bak
   }).catch(()=>{});
 }
 async function updateNow(){
