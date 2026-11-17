@@ -316,6 +316,7 @@ html,body{margin:0}
 <script>
 "use strict";
 const COACH='Esra Doğan',APP="Esra Hoca'nız";
+const APPVER='9 · 17 Kasım 2026'; // sw.js SURUM ile birlikte artırın
 /* ============ sabitler ============ */
 const GUN=['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
 const GN=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
@@ -686,7 +687,7 @@ function ensureMarkSubs(){
 }
 
 /* ============ hesaplar ============ */
-const students=(all)=>Object.values(S.students).filter(s=>all||s.active!==false).sort((a,b)=>a.name.localeCompare(b.name,'tr'));
+const students=(all)=>Object.values(S.students).filter(s=>all||s.active!==false).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'tr'));
 const SET=()=>Object.assign({yks:'2027-06-19',lgs:'2027-06-13',parentEvery:14},S.settings.main||{});
 const msgTpls=()=>{const t=SET().msgTpls;return Array.isArray(t)&&t.length?t:DEF_TPL};
 function examDateFor(s){const st=SET();if(s.target==='LGS')return{name:'LGS',date:st.lgs};if(String(s.target||'').startsWith('YKS'))return{name:'YKS',date:st.yks};return null}
@@ -924,7 +925,13 @@ function render(){
   const V={bugun:vBugun,izleme:vIzleme,ogrenciler:vOgrenciler,ogrenci:vOgrenci,program:vProgram,deneme:vDeneme,odeme:vOdeme,rapor:vRapor,ayar:vAyar,kilavuz:vKilavuz}[ui.view]||vBugun;
   const banner=netWarn?`<div class="banner">${ic('alert')}Sunucuya ulaşılamıyor; gösterilen veriler güncel olmayabilir. İnternet bağlantısını kontrol edin.</div>`:'';
   const sy=window.scrollY;
-  $('#view').innerHTML=banner+V();
+  let html;
+  try{html=banner+V()}catch(err){
+    // bir ekranda hata olursa boş ekran yerine ne olduğunu göster; diğer ekranlar çalışmaya devam eder
+    html=`<div class="card empty">${ic('alert')}<h2>Bu ekran açılamadı</h2><p>Programı ana ekrandan tamamen kapatıp yeniden açın. Sorun devam ederse <b>Ayarlar → Güncellemeyi yükle</b>'ye basın.</p><p class="small muted">Hata ayrıntısı (iletmek için): ${esc(ui.view)} · ${esc(err&&err.message||String(err))} · sürüm ${APPVER}</p><div class="row" style="justify-content:center"><button class="btn pri" data-a="nav" data-v="bugun">Bugün ekranına dön</button><button class="btn" data-a="updateNow">Güncellemeyi yükle</button></div></div>`;
+    try{console.error(err)}catch(e){}
+  }
+  $('#view').innerHTML=html;
   window.scrollTo(0,sy);
   if((ui.view==='program'||(ui.view==='ogrenci'&&ui.stab==='program'))&&ui.sid){const k=pid(ui.sid,ui.week);if(!imgCache[k]){imgCache[k]=[];loadImages(k)}}
 }
@@ -1257,7 +1264,7 @@ function taskForm(i,tid,pre){
   setTimeout(()=>{const el=$(pre.topic?'#tQty':'#tSubj');if(el&&!t)el.focus()},50);
 }
 function tplModal(){
-  const tps=Object.values(S.templates).sort((a,b)=>a.name.localeCompare(b.name,'tr'));const s=S.students[ui.sid];
+  const tps=Object.values(S.templates).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'tr'));const s=S.students[ui.sid];
   ui.tplStudents=ui.tplStudents||(s?[s.id]:[]);
   openModal(`<div class="dhd"><div><h2>Program şablonları</h2><div class="muted small">Uygulanacak hafta: ${wLabel(ui.week)}</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
   ${s?`<div class="card" style="box-shadow:none"><div class="sec">Bu haftanın programını şablon yap (${esc(s.name)})</div><div class="row"><input class="inp grow" id="tplName" placeholder="Örn. YKS sayısal – yoğun hafta"><button class="btn pri" data-a="tplSave">Kaydet</button></div></div>`:''}
@@ -1686,6 +1693,7 @@ function vAyar(){
    <div class="card"><h3>Sınav tarihleri ve veli araması</h3><p style="margin-top:0" class="small muted">Geri sayımlar bu tarihlere göre hesaplanır. Varsayılan tarihler tahminidir; ÖSYM ve MEB takvimi açıklanınca güncelleyin.</p><div class="fg"><label class="f">YKS (ilk oturum)<input type="date" id="setYks" data-ch="setDate" value="${esc(st.yks)}"></label><label class="f">LGS<input type="date" id="setLgs" data-ch="setDate" value="${esc(st.lgs)}"></label><label class="f">Veliler varsayılan olarak kaç günde bir aransın<input type="number" min="1" max="90" id="setPE" data-ch="setDate" value="${esc(st.parentEvery)}"></label></div></div>
    <div class="card"><h3>Kayıt yeri</h3><p style="margin-top:0">${backend==='cloud'?'Veriler claude.ai üzerinde bu sayfaya bağlı ortak alanda saklanıyor. Sayfanın sahibi ve Düzenleyen olarak eklenen kişiler aynı verileri görür; öğrenciler yalnızca kendi programlarını görebilir.':'Tüm veriler yalnızca bu iPad’in içinde saklanıyor; internete veya başka bir hesaba gönderilmiyor. İnternet olmadan da çalışır. iPad değişirse veya sıfırlanırsa kayıtlar gider; bu yüzden haftada bir yedek alın.'}</p><div class="row"><span class="chip ${backend==='cloud'?'ok':'acc'}"><span class="dot ${backend==='cloud'?'':'loc'}"></span>${backend==='cloud'?'Bulutta kayıtlı':'Bu iPad\'de kayıtlı'}${SET().lastBackup?' · son yedek '+fmtDs(SET().lastBackup):''}</span><span class="muted small">${payOK()?`${n} öğrenci, ${Object.keys(S.programs).length} haftalık program, ${Object.keys(S.exams).length} deneme, ${Object.keys(S.payments).length} ödeme`:`Kayıt sayıları gizli ${gizliBtn()}`}</span></div></div>
    <div class="card"><h3>Yedek</h3><p style="margin-top:0">Tüm kayıtlar (görseller dahil) tek dosyada toplanır. “Yedek al”a basınca iPad'in paylaşım menüsü açılır: Dosyalar'a kaydedin veya kendinize WhatsApp'tan gönderin. Yeni bir iPad'de “Yedekten geri yükle” ile her şey geri gelir.</p><div class="row"><button class="btn pri" data-a="backup">${ic('dl','s')}Yedek indir</button><button class="btn" data-a="restore">Yedekten geri yükle</button></div></div>
+   <div class="card"><h3>Program sürümü</h3><p style="margin-top:0">Yüklü sürüm: <b>${APPVER}</b>. Program internete bağlıyken açıldığında yeni sürümü kendisi alır ve bir kez yenilenir; kayıtlarınız silinmez. Bir ekran açılmıyorsa veya yenilik görünmüyorsa aşağıdaki düğmeye basın.</p><button class="btn" data-a="updateNow">${ic('dl','s')}Güncellemeyi yükle</button></div>
    <div class="card"><h3>Gizlilik ve şifre</h3><p style="margin-top:0">Şifre; ödemeleri ve öğrenci sayılarını görmek, “Öğrenciye göster” modundan çıkmak için istenir. Gizli bilgiler, program 2 dakikadan uzun arka planda kalınca veya “Kilitle”ye basınca yeniden kilitlenir.</p><div class="row"><span class="chip ${hasPin()?'ok':'warn'}">${ic('lock','s')}${hasPin()?'Şifre belirlendi':'Şifre belirlenmedi'}</span>${hasPin()?`<button class="btn" data-a="pinChange">Şifreyi değiştir</button>${payOK()?`<button class="btn" data-a="lockPay">Gizli bilgileri kilitle</button>`:''}`:`<button class="btn pri" data-a="unlockPay">Şifre belirle</button>`}</div></div>
    <div class="card"><h3>Örnek veriler</h3><p style="margin-top:0">Programı tanımak için örnek öğrenciler, programlar, denemeler, konular, veli görüşmeleri ve ödemeler oluşturur. Adlarının yanında “(Örnek)” yazar; tek tuşla silinir.</p><div class="row">${demo?`<button class="btn danger" data-a="clearDemo">${ic('trash','s')}Örnek verileri sil (${demo})</button>`:`<button class="btn" data-a="loadDemo">Örnek verileri yükle</button>`}</div></div>
    ${backend==='local'?`<div class="card"><h3>Uygulama kurulumu</h3><p style="margin-top:0">${navigator.standalone||matchMedia('(display-mode: standalone)').matches?'Program ana ekrandan uygulama olarak çalışıyor.':'Safari\'de Paylaş simgesine basıp <b>Ana Ekrana Ekle</b>\'yi seçin. Program ana ekranda simge olarak durur, tam ekran ve internetsiz çalışır.'}</p></div>`:''}
@@ -1801,6 +1809,7 @@ const saveS=s=>put('students',s.id,clone(s));
 const A={
   nav(d){ui.view=d.v;closeModal();window.scrollTo(0,0);render()},
   unlockPay(){pinModal('pay')},
+  updateNow(){updateNow()},
   lockPay(){payUnlocked=false;render();toast('Gizli bilgiler kilitlendi')},
   pinOk(){pinSubmit()},
   pinChange(){pinModal('change')},
@@ -2028,7 +2037,23 @@ $('#fileJson').addEventListener('change',async e=>{
 });
 let lastDay=dkey(today());setInterval(()=>{const k=dkey(today());if(k!==lastDay){lastDay=k;ui.week=curWeek(ui.sid);ui.iweek=wkey(today());scheduleRender()}},60000);
 initStore();
-if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+/* Güncelleme: yeni sürüm bulunca program kendini bir kez yeniler (kayıtlar iPad'de olduğu için silinmez).
+   Program arka plandan her öne geldiğinde yeni sürüm var mı diye bakılır. */
+if('serviceWorker' in navigator&&location.protocol==='https:'){
+  const hadController=!!navigator.serviceWorker.controller;let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloading)return;reloading=true;try{if(dirty.size)flushLocal()}catch(e){}setTimeout(()=>location.reload(),300)});
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    const chk=()=>reg.update().catch(()=>{});chk();
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')chk()});
+  }).catch(()=>{});
+}
+async function updateNow(){
+  toast('Güncelleme yükleniyor…');
+  try{if(dirty.size)await flushLocal()}catch(e){}
+  try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}
+  try{const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.update().catch(()=>{})))}catch(e){}
+  location.reload();
+}
 </script>
 </body>
 </html>
