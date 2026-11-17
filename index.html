@@ -278,6 +278,8 @@ textarea{resize:vertical;min-height:70px}
 .miniin label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .miniin input{width:84px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 9px;min-height:38px;text-align:center;font-size:15px;color:var(--ink)}
 @media (prefers-reduced-motion:no-preference){.meter i,.hbar .tr i{transition:width .4s ease}}
+.lk{border:1px solid var(--line);background:var(--surface2);color:var(--muted);border-radius:7px;padding:2px 6px;display:inline-flex;align-items:center;vertical-align:middle;margin-left:4px}
+.lk:hover{color:var(--accent);border-color:var(--accent)}
 #printArea{display:none}
 @media print{
   @page{size:A4 landscape;margin:8mm}
@@ -850,7 +852,7 @@ function renderNav(){
   const v=ui.view==='ogrenci'?'ogrenciler':ui.view;
   $('#side').innerHTML=`<div class="brand"><div class="mark">E</div><div><b>${APP}</b><small>${COACH} · Eğitim Koçu</small></div></div>`+
     NAV.map(([k,l,i])=>`<button class="nv ${v===k?'on':''}" data-a="nav" data-v="${k}">${ic(k==='odeme'&&!payOK()?'lock':i)}${l}</button>`).join('')+
-    `<div class="foot"><span class="dot"></span>${backend==='cloud'?(netWarn?'Bağlantı bekleniyor':`Bulutta kayıtlı · ${students().length} öğrenci`):`Bu iPad'de kayıtlı`}</div>`;
+    `<div class="foot"><span class="dot"></span>${backend==='cloud'?(netWarn?'Bağlantı bekleniyor':'Bulutta kayıtlı'):`Bu iPad'de kayıtlı`}</div><button class="nv" data-a="${payOK()?'lockPay':'unlockPay'}" style="font-size:13px;padding:8px 12px">${ic('lock','s')}${payOK()?'Gizli bilgiler açık · Kilitle':'Gizli bilgiler kilitli'}</button>`;
   $('#tabbar').innerHTML=TABS.map(([k,l,i])=>`<button class="nv ${v===k||(k==='ayar'&&(v==='rapor'||v==='kilavuz'))?'on':''}" data-a="nav" data-v="${k}">${ic(i)}${l}</button>`).join('');
 }
 let rq=false,deferred=false;
@@ -863,16 +865,17 @@ document.addEventListener('focusout',()=>{if(deferred){deferred=false;setTimeout
 let payUnlocked=false,hiddenAt=0,pinFails=0,pinWaitUntil=0;
 const hasPin=()=>!!SET().pinHash;
 const payOK=()=>payUnlocked;
+const gizliBtn=()=>`<button class="lk" data-a="unlockPay" title="Gizli bilgi: görmek için şifrenizi girin" aria-label="Gizli bilgiyi göster">${ic('lock','s')}</button>`;
 async function pinHash(p){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('esra-hocaniz:'+p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')hiddenAt=Date.now();else if(hiddenAt&&Date.now()-hiddenAt>120000&&payUnlocked){payUnlocked=false;scheduleRender()}});
 function payLocked(){
-  return `<div class="card empty">${ic('lock')}<h2>Ödemeler şifreyle korunuyor</h2><p>${hasPin()?'Ödeme bilgilerini görmek için şifrenizi girin.':'Ödeme bilgilerini korumak için önce bir şifre belirleyin.'}</p><button class="btn pri" data-a="unlockPay">${ic('lock','s')}${hasPin()?'Şifreyi gir':'Şifre belirle'}</button></div>`;
+  return `<div class="card empty">${ic('lock')}<h2>Ödemeler şifreyle korunuyor</h2><p>${hasPin()?'Ödeme bilgilerini ve öğrenci sayılarını görmek için şifrenizi girin.':'Ödeme bilgilerini korumak için önce bir şifre belirleyin.'}</p><button class="btn pri" data-a="unlockPay">${ic('lock','s')}${hasPin()?'Şifreyi gir':'Şifre belirle'}</button></div>`;
 }
 const pinInput=(id,ph)=>`<input id="${id}" type="password" inputmode="numeric" autocomplete="off" maxlength="8" class="inp" placeholder="${ph}" style="font-size:22px;letter-spacing:.3em;text-align:center">`;
 function pinModal(purpose){
   ui.pinPurpose=purpose;
   const set=!hasPin()||purpose==='change';
-  const title=purpose==='exit'?'Çıkmak için şifre':purpose==='change'?'Şifreyi değiştir':set?'Şifre belirleyin':'Ödemeler için şifre';
+  const title=purpose==='exit'?'Çıkmak için şifre':purpose==='change'?'Şifreyi değiştir':set?'Şifre belirleyin':'Gizli bilgiler için şifre';
   openModal(`<div class="dhd"><div class="row">${ic('lock')}<h2>${title}</h2></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
    ${set?`<p class="small muted" style="margin:0">4–8 haneli bir rakam şifre seçin. Bu şifre ödemeleri açmak ve “Öğrenciye göster” modundan çıkmak için kullanılacak. Unutmayacağınız ama öğrencilerin tahmin edemeyeceği bir şifre olsun.</p>`:''}
    ${purpose==='change'&&hasPin()?`<label class="f">Mevcut şifre${pinInput('pinOld','••••')}</label>`:''}
@@ -955,7 +958,7 @@ function vBugun(){
   const sc=score(tt);let wy=0,wtot=0;ss.forEach(s=>{const w=weekStats(s.id,curWeek(s.id));wy+=w.y+.5*w.k;wtot+=w.t;qT+=w.q;hT+=w.h});
   const pdue=ss.filter(s=>parentDue(s).due);
   const kpis=`<div class="kpis">
-    <div class="kpi"><span class="l">Bugün aranan</span><span class="v num">${called}<small> / ${ss.length}</small></span><div class="meter"><i style="width:${called/ss.length*100}%"></i></div><span class="s">${reached} öğrenciyle konuşuldu</span></div>
+    <div class="kpi"><span class="l">Bugün aranan</span><span class="v num">${called}<small>${payOK()?' / '+ss.length:''}</small></span>${payOK()?`<div class="meter"><i style="width:${called/ss.length*100}%"></i></div>`:''}<span class="s">${reached} öğrenciyle konuşuldu</span></div>
     <div class="kpi"><span class="l">Bugünkü görevler</span><span class="v num">${sc.t?pct(sc.p):'–'}</span><div class="meter"><i style="width:${(sc.p||0)*100}%;background:var(--ok)"></i></div><span class="s">${sc.t} görev · ${sc.open} işaretlenmedi</span></div>
     <div class="kpi"><span class="l">Bu hafta çalışma</span><span class="v num">${fmtN(hT)}<small> saat</small></span><span class="s">${qT.toLocaleString('tr-TR')} soru · tamamlama ${wtot?pct(wy/wtot):'–'}</span></div>
     <button class="kpi" data-a="pcallList"><span class="l">Aranacak veli</span><span class="v num" style="color:${pdue.length?'var(--warn)':'inherit'}">${pdue.length}</span><span class="s">Arama aralığı dolanlar</span></button>
@@ -967,7 +970,7 @@ function vBugun(){
   const al=[];ss.forEach(s=>alertsFor(s).forEach(a=>al.push(Object.assign(a,{st:s}))));
   const ord={bad:0,warn:1,info:2};al.sort((a,b)=>ord[a.sev]-ord[b.sev]);
   const alerts=al.length?`<div class="alerts">${al.slice(0,ui.allAlerts?99:8).map(a=>`<div class="alert ${a.sev}"><span class="sev"></span>${avatar(a.st,30)}<div class="grow"><div class="t">${esc(a.st.name)}: ${esc(a.t)}</div><div class="r">${esc(a.r)}</div></div><button class="btn sm" data-a="${a.a}" data-id="${a.sid}">${esc(a.btn)}</button></div>`).join('')}${al.length>8&&!ui.allAlerts?`<button class="btn ghost sm" data-a="allAlerts">Tüm uyarılar (${al.length})</button>`:''}</div>`:`<div class="empty small">${ic('check')}Her şey yolunda, dikkat gerektiren bir durum yok.</div>`;
-  return head+backupBanner()+kpis+`<div class="grid g2"><div class="card"><div class="ctitle"><h2>Öğrenci aramaları</h2><span class="muted small">${called}/${ss.length} tamamlandı</span></div><div class="calls">${rows}</div></div><div class="card"><div class="ctitle"><h2>Dikkat edilecekler</h2><span class="chip ${al.some(a=>a.sev==='bad')?'bad':al.length?'warn':'ok'}">${al.length}</span></div>${alerts}</div></div>`;
+  return head+backupBanner()+kpis+`<div class="grid g2"><div class="card"><div class="ctitle"><h2>Öğrenci aramaları</h2><span class="muted small">${payOK()?called+'/'+ss.length+' tamamlandı':called+' arandı'}</span></div><div class="calls">${rows}</div></div><div class="card"><div class="ctitle"><h2>Dikkat edilecekler</h2><span class="chip ${al.some(a=>a.sev==='bad')?'bad':al.length?'warn':'ok'}">${al.length}</span></div>${alerts}</div></div>`;
 }
 
 /* ============ GENEL İZLEME ============ */
@@ -982,8 +985,8 @@ function vIzleme(){
     return `<button class="mc ${cls}" data-a="call" data-id="${s.id}" data-d="${dkey(d)}" title="${GUN[i]}: ${c?callLabel(c.st):'Aranmadı'}${sc.t?` · görev ${pct(sc.p)}`:''}${qh.h!=null?` · ${fmtN(qh.h)} saat`:''}"><span class="cd ${c?callMk(c.st):''}"></span><b>${sc.t?pct(sc.p):'–'}</b><span class="muted">${qh.h!=null?fmtN(qh.h)+' sa':''}</span></button>`};
   return head+`<div class="kpis">
    <div class="kpi"><span class="l">Haftalık tamamlama</span><span class="v num">${T.t?pct(T.d/T.t):'–'}</span><span class="s">${T.t} görev</span></div>
-   <div class="kpi"><span class="l">Toplam çalışma</span><span class="v num">${fmtN(T.h)}<small> saat</small></span><span class="s">Öğrenci başına ${fmtN(T.h/ss.length)} saat</span></div>
-   <div class="kpi"><span class="l">Çözülen soru</span><span class="v num">${T.q.toLocaleString('tr-TR')}</span><span class="s">Öğrenci başına ${Math.round(T.q/ss.length).toLocaleString('tr-TR')}</span></div>
+   <div class="kpi"><span class="l">Toplam çalışma</span><span class="v num">${fmtN(T.h)}<small> saat</small></span><span class="s">${payOK()?'Öğrenci başına '+fmtN(T.h/ss.length)+' saat':'Haftalık toplam'}</span></div>
+   <div class="kpi"><span class="l">Çözülen soru</span><span class="v num">${T.q.toLocaleString('tr-TR')}</span><span class="s">${payOK()?'Öğrenci başına '+Math.round(T.q/ss.length).toLocaleString('tr-TR'):'Haftalık toplam'}</span></div>
    <div class="kpi"><span class="l">Aramalar</span><span class="v num">${T.r}<small> / ${T.c}</small></span><span class="s">Konuşulan / aranan gün</span></div></div>
   <div class="card"><div class="ctitle"><h3>Haftalık izleme tablosu</h3><div class="legend"><span><i style="background:var(--ok)"></i>Konuşuldu</span><span><i style="background:var(--bad)"></i>Açmadı/kapalı</span><span><i style="background:var(--warn)"></i>Meşgul</span><span><i style="background:var(--accent)"></i>Mesaj atıldı</span><span><i style="background:var(--line)"></i>Aranmadı</span></div></div>
   <div class="tw"><table class="t"><thead><tr><th>Öğrenci</th>${GN.map((g,i)=>`<th class="c">${g}<br><span style="font-weight:500;text-transform:none;letter-spacing:0">${fmtDs(addD(a,i))}</span></th>`).join('')}<th class="n">Görev</th><th class="n">Saat</th><th class="n">Soru</th><th class="n">Son net</th><th>Veli</th><th>Ödeme</th></tr></thead>
@@ -1004,7 +1007,7 @@ function openCall(sid,dk){
   const stu=day&&(day.sq!=null||day.sh!=null)?`<div class="small" style="color:var(--accent)">Öğrenci bildirdi: ${day.sq!=null?day.sq+' soru':''}${day.sq!=null&&day.sh!=null?', ':''}${day.sh!=null?day.sh+' saat':''}</div>`:'';
   const qv=c.q!=null&&c.q!==''?c.q:(day&&day.sq!=null?day.sq:''),hv=c.h!=null&&c.h!==''?c.h:(day&&day.sh!=null?day.sh:'');
   const wa=waLink(s.phone,`Merhaba ${firstName(s.name)}, `);
-  openModal(`<div class="dhd"><div class="row">${avatar(s,44)}<div><h2>${esc(s.name)}</h2><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}${q?` · Arama turu ${qi+1}/${q.length}`:''}</div></div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
+  openModal(`<div class="dhd"><div class="row">${avatar(s,44)}<div><h2>${esc(s.name)}</h2><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}${q?` · Arama turu${payOK()?` ${qi+1}/${q.length}`:''}`:''}</div></div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
    <div class="row" style="gap:18px">${s.phone?`<div><div class="small muted">Öğrenci</div><a class="phone" href="tel:${esc(s.phone.replace(/\s/g,''))}">${esc(s.phone)}</a></div>`:''}${s.parentPhone?`<div><div class="small muted">Veli ${esc(s.parent||'')}</div><a class="phone" href="tel:${esc(s.parentPhone.replace(/\s/g,''))}">${esc(s.parentPhone)}</a></div>`:''}${wa?`<a class="btn sm wa" href="${esc(wa)}" target="_blank" rel="noopener">${ic('wa','s')}WhatsApp</a>`:''}${!s.phone&&!s.parentPhone?'<span class="muted small">Telefon kaydı yok. Öğrenci bilgilerinden ekleyebilirsiniz.</span>':''}</div>
    <div class="row"><div class="seg">${[-1,0].map(o=>{const x=addD(today(),o);return `<button class="${dkey(x)===dkey(d)?'on':''}" data-a="callDay" data-id="${sid}" data-d="${dkey(x)}">${o?'Dün':'Bugün'} · ${GN[dIdx(x)]}</button>`}).join('')}</div>${dkey(d)!==dkey(today())&&dkey(d)!==dkey(addD(today(),-1))?`<span class="chip acc">${GUN[dIdx(d)]}, ${fmtD(d)}</span>`:''}</div>
    <div><div class="sec">Arama durumu</div><div class="stset">${Object.entries(CALLST).map(([k,[l,cl]])=>`<button class="${cl} ${ui.callDraft.st===k?'on':''}" data-a="cSt" data-v="${k}">${l}</button>`).join('')}</div></div>
@@ -1045,7 +1048,7 @@ function bulkModal(){
   openModal(`<div class="dhd"><div><h2>Toplu WhatsApp mesajı</h2><div class="muted small">Seçtiğiniz kişilere kişiye özel mesaj hazırlanır; her birini WhatsApp'ta açıp gönderirsiniz.</div></div><button class="ib" data-a="close" aria-label="Kapat">${ic('x')}</button></div>
   <div class="row"><div class="seg"><button class="${b.aud==='stu'?'on':''}" data-a="bAud" data-v="stu">Öğrencilere</button><button class="${b.aud==='par'?'on':''}" data-a="bAud" data-v="par">Velilere</button></div>
    <select class="inp" id="bTpl" data-ch="bTpl" style="width:auto;flex:1;min-width:200px"><option value="">Şablon seçin…</option>${tps.map(t=>`<option value="${t.id}" ${b.tpl===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select></div>
-  <div><div class="row" style="justify-content:space-between;margin-bottom:6px"><div class="sec" style="margin:0">Kime gönderilecek? (${b.ids.length} kişi)</div><div class="row" style="gap:6px"><button class="btn sm ghost" data-a="bAll">Tümünü seç</button><button class="btn sm ghost" data-a="bNotCalled">Bugün aranmayanlar</button><button class="btn sm ghost" data-a="bNone">Temizle</button></div></div>
+  <div><div class="row" style="justify-content:space-between;margin-bottom:6px"><div class="sec" style="margin:0">Kime gönderilecek?${payOK()?` (${b.ids.length} kişi)`:''}</div><div class="row" style="gap:6px"><button class="btn sm ghost" data-a="bAll">Tümünü seç</button><button class="btn sm ghost" data-a="bNotCalled">Bugün aranmayanlar</button><button class="btn sm ghost" data-a="bNone">Temizle</button></div></div>
    <div class="tchips">${ss.map(s=>`<button class="tc ${b.ids.includes(s.id)?'on':''}" data-a="bPick" data-id="${s.id}">${esc(s.name)}</button>`).join('')}</div></div>
   <label class="f">Mesaj<textarea id="bText" data-in="bText" style="min-height:130px">${esc(b.text)}</textarea></label>
   <div class="ph">Kişiye göre doldurulan alanlar: {ad} {adsoyad} {veli} {bugun_program} {haftalik_rapor} {geciken_tutar} {geciken_aylar} {sinav_gun} {koc}</div>
@@ -1063,10 +1066,10 @@ function bulkList(){
 /* ============ ÖĞRENCİLER ============ */
 function vOgrenciler(){
   const all=students(true);const ss=all.filter(s=>ui.showPassive||s.active!==false);const passive=all.length-students().length;
-  const head=`<div class="head"><div><h1>Öğrenciler</h1><p>${students().length} aktif${passive?`, ${passive} pasif`:''} öğrenci</p></div><div class="row">${passive?`<button class="btn" data-a="togglePassive">${ui.showPassive?'Pasifleri gizle':'Pasifleri göster'}</button>`:''}<button class="btn pri" data-a="newStudent">${ic('plus')}Yeni öğrenci</button></div></div>`;
+  const head=`<div class="head"><div><h1>Öğrenciler</h1><p>${payOK()?`${students().length} aktif${passive?`, ${passive} pasif`:''} öğrenci`:`Öğrenci sayısı gizli ${gizliBtn()}`}</p></div><div class="row">${passive?`<button class="btn" data-a="togglePassive">${ui.showPassive?'Pasifleri gizle':'Pasifleri göster'}</button>`:''}<button class="btn pri" data-a="newStudent">${ic('plus')}Yeni öğrenci</button></div></div>`;
   if(!all.length)return head+noStudents();
   return head+`<div class="grid g3">${ss.map(s=>{
-    const w=weekStats(s.id,wk);const ex=examsOf(s.id);const last=ex[ex.length-1];const od=overdue(s);
+    const w=weekStats(s.id,curWeek(s.id));const ex=examsOf(s.id);const last=ex[ex.length-1];const od=overdue(s);
     return `<div class="card scard" data-a="openS" data-id="${s.id}" role="button" tabindex="0"><div class="top">${avatar(s,44)}<div class="grow"><h3>${esc(s.name)}</h3><div class="muted small">${esc(s.grade||'')} ${s.target?'· '+esc(s.target):''}</div></div>${s.active===false?'<span class="chip">Pasif</span>':payOK()&&od.list.length?'<span class="chip bad">Ödeme gecikti</span>':s.link?'<span class="chip acc" title="Öğrenci ekranı bağlı">Bağlı</span>':''}</div>
     <div><div class="row" style="justify-content:space-between;font-size:13px;margin-bottom:5px"><span class="muted">Bu hafta</span><b class="num">${w.t?pct(w.p):'Program yok'}</b></div><div class="meter"><i style="width:${(w.p||0)*100}%;background:${w.p>=.8?'var(--ok)':w.p>=.5?'var(--hl)':'var(--bad)'}"></i></div></div>
     <div class="kv"><div><span>Son deneme</span><b class="num">${last?`${fmtNet(netOf(last).tot)} net`:'–'}</b></div><div><span>Bu hafta çalışma</span><b class="num">${w.hd?fmtN(w.h)+' saat':'–'}</b></div></div></div>`}).join('')}</div>`;
@@ -1634,14 +1637,15 @@ const KILAVUZ=[
   <p>${KB('ok','Yeşil')} ödendi (hücrede ödemenin getirildiği tarih yazar), ${KB('warn','Sarı')} eksik ödendi, ${KB('bad','Kırmızı')} ödeme günü geçti, gri henüz zamanı gelmedi. Aylık ücreti girilmemiş öğrencilerde ay takibi yapılmaz.</p>
   <p>Üstteki kartlar bu ay beklenen ve tahsil edilen tutarı, kalan tutarı, toplam gecikmeyi ve yıllık tahsilatı gösterir. <b>Ödeme defteri</b> bütün ödemeleri getirildiği tarihe göre sıralar. Gecikmiş bir ödeme için öğrencinin Ödemeler sekmesindeki <b>Hatırlat</b> düğmesi veliye kibar bir WhatsApp mesajı hazırlar.</p>`],
  ['gizlilik','Gizlilik, şifre ve öğrenciye göstermek',`
-  <h3>Ödemeler şifreli</h3>
-  <p>Ödeme bilgileri şifre girilene kadar programın <b>hiçbir yerinde görünmez</b>: Ödemeler ekranı, Bugün ekranındaki kart, uyarılar, Genel izleme, Raporlar ve öğrenci sayfalarındaki ödeme kısımları kilit simgesiyle kapalı durur.</p>
+  <h3>Ödemeler ve öğrenci sayıları şifreli</h3>
+  <p><b>Öğrenci sayıları</b> (Öğrenciler başlığı, Bugün ekranı, Genel izleme, arama turu, toplu mesaj ve Ayarlar) şifre girilene kadar gizlidir; yerlerinde küçük bir kilit simgesi durur. Kilide veya menünün altındaki <b>Gizli bilgiler kilitli</b> yazısına dokunup şifrenizi girince sayılar ve ödemeler birlikte açılır.</p>
+  <p>Ödeme bilgileri de şifre girilene kadar programın <b>hiçbir yerinde görünmez</b>: Ödemeler ekranı, Bugün ekranındaki kart, uyarılar, Genel izleme, Raporlar ve öğrenci sayfalarındaki ödeme kısımları kilit simgesiyle kapalı durur.</p>
   ${KS(['İlk sefer: <b>Ödemeler</b>\'e girin veya <b>Diğer → Ayarlar → Gizlilik ve şifre → Şifre belirle</b>\'ye basın. 4–8 haneli bir rakam şifre seçip iki kez yazın.','Sonraki seferlerde kilitli bir ödeme alanına dokununca şifre sorulur; şifreyi girince ödemeler açılır.','İşiniz bitince Ödemeler ekranındaki <b>Kilitle</b>\'ye basın. Program 2 dakikadan uzun arka planda kalırsa da kendiliğinden kilitlenir.'])}
   <p><b>Şifreyi değiştirmek:</b> Ayarlar → Gizlilik ve şifre → <b>Şifreyi değiştir</b>. <b>Şifreyi unutursanız:</b> şifre penceresindeki “Şifremi unuttum” şifreyi sıfırlar ama gizlilik için bütün ödeme kayıtlarını da siler; ödemeler son yedekten geri getirilebilir.</p>
   <h3>Öğrenciye göster</h3>
   <p>iPad'i bir öğrenciye uzattığınızda diğer öğrencilerin adlarını ve kaç öğrenciniz olduğunu görmemesi için bu modu kullanın.</p>
   ${KS(['Öğrencinin sayfasında veya Program ekranında <b>Öğrenciye göster</b>\'e basın.','Ekranda yalnızca o öğrencinin haftalık programı, haftanın hedefi ve haftanın sözü görünür. Menüler kapanır, başka öğrenciye geçilemez.','Öğrenci yalnızca hafta değiştirebilir. Çıkmak için sağ üstteki <b>Çık</b>\'a basıp şifrenizi girin.'])}
-  <p>Diğer gizlilik önlemleri: menüde toplam öğrenci sayısı yazmaz; program görseli, veli raporu ve WhatsApp mesajları yalnızca ilgili öğrencinin bilgisini içerir ve toplu mesajlar herkese ayrı ayrı gider.</p>
+  <p>Diğer gizlilik önlemleri: program görseli, veli raporu ve WhatsApp mesajları yalnızca ilgili öğrencinin bilgisini içerir ve toplu mesajlar herkese ayrı ayrı gider.</p>
   <p class="small muted">Not: Şifre, iPad'i elinize alan birinin ödemeleri ekranda görmesini engeller. Yedek dosyası şifreli değildir; yedekleri yalnızca size ait yerlerde (kendi Dosyalar'ınız, kendinize WhatsApp) saklayın.</p>`],
  ['rapor','Raporlar',`
   <p><b>Diğer → Raporlar</b>'dan açılır. Üstten <b>Hafta</b>, <b>Ay</b> veya <b>Yıl</b> seçip oklarla dönem değiştirirsiniz.</p>
@@ -1680,9 +1684,9 @@ function vAyar(){
    <div style="display:flex;flex-direction:column;gap:8px">${tps.map(t=>`<div class="alert ${t.aud==='par'?'ok':'info'}"><span class="sev"></span><div class="grow"><div class="t">${esc(t.name)} <span class="chip">${t.aud==='par'?'Veli':'Öğrenci'}</span></div><div class="r" style="white-space:pre-wrap">${esc(t.text.slice(0,140))}${t.text.length>140?'…':''}</div></div><button class="ib" data-a="tplMsgForm" data-id="${t.id}" aria-label="Düzenle">${ic('edit','s')}</button></div>`).join('')}</div></div>
   <div class="grid g2">
    <div class="card"><h3>Sınav tarihleri ve veli araması</h3><p style="margin-top:0" class="small muted">Geri sayımlar bu tarihlere göre hesaplanır. Varsayılan tarihler tahminidir; ÖSYM ve MEB takvimi açıklanınca güncelleyin.</p><div class="fg"><label class="f">YKS (ilk oturum)<input type="date" id="setYks" data-ch="setDate" value="${esc(st.yks)}"></label><label class="f">LGS<input type="date" id="setLgs" data-ch="setDate" value="${esc(st.lgs)}"></label><label class="f">Veliler varsayılan olarak kaç günde bir aransın<input type="number" min="1" max="90" id="setPE" data-ch="setDate" value="${esc(st.parentEvery)}"></label></div></div>
-   <div class="card"><h3>Kayıt yeri</h3><p style="margin-top:0">${backend==='cloud'?'Veriler claude.ai üzerinde bu sayfaya bağlı ortak alanda saklanıyor. Sayfanın sahibi ve Düzenleyen olarak eklenen kişiler aynı verileri görür; öğrenciler yalnızca kendi programlarını görebilir.':'Tüm veriler yalnızca bu iPad’in içinde saklanıyor; internete veya başka bir hesaba gönderilmiyor. İnternet olmadan da çalışır. iPad değişirse veya sıfırlanırsa kayıtlar gider; bu yüzden haftada bir yedek alın.'}</p><div class="row"><span class="chip ${backend==='cloud'?'ok':'acc'}"><span class="dot ${backend==='cloud'?'':'loc'}"></span>${backend==='cloud'?'Bulutta kayıtlı':'Bu iPad\'de kayıtlı'}${SET().lastBackup?' · son yedek '+fmtDs(SET().lastBackup):''}</span><span class="muted small">${n} öğrenci, ${Object.keys(S.programs).length} haftalık program, ${Object.keys(S.exams).length} deneme, ${payOK()?Object.keys(S.payments).length+' ödeme':'ödemeler kilitli'}</span></div></div>
+   <div class="card"><h3>Kayıt yeri</h3><p style="margin-top:0">${backend==='cloud'?'Veriler claude.ai üzerinde bu sayfaya bağlı ortak alanda saklanıyor. Sayfanın sahibi ve Düzenleyen olarak eklenen kişiler aynı verileri görür; öğrenciler yalnızca kendi programlarını görebilir.':'Tüm veriler yalnızca bu iPad’in içinde saklanıyor; internete veya başka bir hesaba gönderilmiyor. İnternet olmadan da çalışır. iPad değişirse veya sıfırlanırsa kayıtlar gider; bu yüzden haftada bir yedek alın.'}</p><div class="row"><span class="chip ${backend==='cloud'?'ok':'acc'}"><span class="dot ${backend==='cloud'?'':'loc'}"></span>${backend==='cloud'?'Bulutta kayıtlı':'Bu iPad\'de kayıtlı'}${SET().lastBackup?' · son yedek '+fmtDs(SET().lastBackup):''}</span><span class="muted small">${payOK()?`${n} öğrenci, ${Object.keys(S.programs).length} haftalık program, ${Object.keys(S.exams).length} deneme, ${Object.keys(S.payments).length} ödeme`:`Kayıt sayıları gizli ${gizliBtn()}`}</span></div></div>
    <div class="card"><h3>Yedek</h3><p style="margin-top:0">Tüm kayıtlar (görseller dahil) tek dosyada toplanır. “Yedek al”a basınca iPad'in paylaşım menüsü açılır: Dosyalar'a kaydedin veya kendinize WhatsApp'tan gönderin. Yeni bir iPad'de “Yedekten geri yükle” ile her şey geri gelir.</p><div class="row"><button class="btn pri" data-a="backup">${ic('dl','s')}Yedek indir</button><button class="btn" data-a="restore">Yedekten geri yükle</button></div></div>
-   <div class="card"><h3>Gizlilik ve şifre</h3><p style="margin-top:0">Şifre; ödemeleri görmek ve “Öğrenciye göster” modundan çıkmak için istenir. Ödemeler, program 2 dakikadan uzun arka planda kalınca veya “Kilitle”ye basınca yeniden kilitlenir.</p><div class="row"><span class="chip ${hasPin()?'ok':'warn'}">${ic('lock','s')}${hasPin()?'Şifre belirlendi':'Şifre belirlenmedi'}</span>${hasPin()?`<button class="btn" data-a="pinChange">Şifreyi değiştir</button>${payOK()?`<button class="btn" data-a="lockPay">Ödemeleri kilitle</button>`:''}`:`<button class="btn pri" data-a="unlockPay">Şifre belirle</button>`}</div></div>
+   <div class="card"><h3>Gizlilik ve şifre</h3><p style="margin-top:0">Şifre; ödemeleri ve öğrenci sayılarını görmek, “Öğrenciye göster” modundan çıkmak için istenir. Gizli bilgiler, program 2 dakikadan uzun arka planda kalınca veya “Kilitle”ye basınca yeniden kilitlenir.</p><div class="row"><span class="chip ${hasPin()?'ok':'warn'}">${ic('lock','s')}${hasPin()?'Şifre belirlendi':'Şifre belirlenmedi'}</span>${hasPin()?`<button class="btn" data-a="pinChange">Şifreyi değiştir</button>${payOK()?`<button class="btn" data-a="lockPay">Gizli bilgileri kilitle</button>`:''}`:`<button class="btn pri" data-a="unlockPay">Şifre belirle</button>`}</div></div>
    <div class="card"><h3>Örnek veriler</h3><p style="margin-top:0">Programı tanımak için örnek öğrenciler, programlar, denemeler, konular, veli görüşmeleri ve ödemeler oluşturur. Adlarının yanında “(Örnek)” yazar; tek tuşla silinir.</p><div class="row">${demo?`<button class="btn danger" data-a="clearDemo">${ic('trash','s')}Örnek verileri sil (${demo})</button>`:`<button class="btn" data-a="loadDemo">Örnek verileri yükle</button>`}</div></div>
    ${backend==='local'?`<div class="card"><h3>Uygulama kurulumu</h3><p style="margin-top:0">${navigator.standalone||matchMedia('(display-mode: standalone)').matches?'Program ana ekrandan uygulama olarak çalışıyor.':'Safari\'de Paylaş simgesine basıp <b>Ana Ekrana Ekle</b>\'yi seçin. Program ana ekranda simge olarak durur, tam ekran ve internetsiz çalışır.'}</p></div>`:''}
    <div class="card" style="grid-column:1/-1"><h3>Kısa kullanım</h3><div class="tl small">
@@ -1797,7 +1801,7 @@ const saveS=s=>put('students',s.id,clone(s));
 const A={
   nav(d){ui.view=d.v;closeModal();window.scrollTo(0,0);render()},
   unlockPay(){pinModal('pay')},
-  lockPay(){payUnlocked=false;render();toast('Ödemeler kilitlendi')},
+  lockPay(){payUnlocked=false;render();toast('Gizli bilgiler kilitlendi')},
   pinOk(){pinSubmit()},
   pinChange(){pinModal('change')},
   pinForgot(){confirmBox('Şifre sıfırlansın mı?','Şifreyi unuttuysanız sıfırlayabilirsiniz; ancak gizlilik için <b>bütün ödeme kayıtları da silinir</b>. Yedeğiniz varsa sonra “Yedekten geri yükle” ile ödemeleri geri getirebilirsiniz (yedekteki eski şifre de geri gelir).','Şifreyi ve ödemeleri sil',()=>{
@@ -1887,7 +1891,7 @@ const A={
   delPlog(d){const s=clone(cur());s.plog=(s.plog||[]).filter(l=>l.id!==d.id);saveS(s)},
   bulk(){const t=today();const tp=msgTpls().find(x=>x.aud==='stu');ui.bulk={aud:'stu',ids:students().filter(s=>!dayCall(s.id,t)).map(s=>s.id),tpl:tp?tp.id:'',text:tp?tp.text:'',log:true,sent:{}};bulkModal()},
   bAud(d){const b=ui.bulk;b.aud=d.v;const tp=msgTpls().find(x=>x.aud===d.v);b.tpl=tp?tp.id:'';b.text=tp?tp.text:'';b.sent={};bulkModal()},
-  bPick(d,el){const b=ui.bulk;const i=b.ids.indexOf(d.id);if(i>=0)b.ids.splice(i,1);else b.ids.push(d.id);el.classList.toggle('on',i<0);$('#bList').innerHTML=bulkList();el.closest('.dlg').querySelector('.sec').textContent=`Kime gönderilecek? (${b.ids.length} kişi)`},
+  bPick(d,el){const b=ui.bulk;const i=b.ids.indexOf(d.id);if(i>=0)b.ids.splice(i,1);else b.ids.push(d.id);el.classList.toggle('on',i<0);$('#bList').innerHTML=bulkList();el.closest('.dlg').querySelector('.sec').textContent=`Kime gönderilecek?${payOK()?` (${b.ids.length} kişi)`:''}`},
   bAll(){ui.bulk.ids=students().map(s=>s.id);bulkModal()},
   bNone(){ui.bulk.ids=[];bulkModal()},
   bNotCalled(){const t=today();ui.bulk.ids=students().filter(s=>!dayCall(s.id,t)).map(s=>s.id);bulkModal()},
